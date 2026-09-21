@@ -21,7 +21,7 @@ export function rulesView(r,seat){
  const choice=r.choice;
  return {rulesVersion:r.rulesVersion,phase:r.phase||'waiting',previousWinner:r.previousWinner,first:r.first,orderWinner:r.orderWinner,setupSeat:r.setupSeat,comboSeat:r.comboSeat,comboLeft:r.comboLeft,ruleNotice:r.ruleNotice,
   choice:choice?{...choice,options:choice.seat===seat||r.players[choice.seat]?.isBot?choice.options:[],canAnswer:choice.seat===seat||r.players[choice.seat]?.isBot}:null,
-  turnOwner:r.active,canAct:r.phase==='action'&&r.active===seat||r.phase==='defense'&&r.active!==seat||r.phase==='combo'&&r.comboSeat===seat,
+  turnOwner:r.active,canAct:['draw','action','battle'].includes(r.phase)&&r.active===seat||r.phase==='defense'&&r.active!==seat||r.phase==='combo'&&r.comboSeat===seat,
  };
 }
 export function rulesAct(room,seat,cmd,cards){const g=new Game(room,cards);g.command(seat,cmd);g.advance();room.version++;return room}
@@ -65,18 +65,20 @@ class Game{
   if(cmd.type==='leader'&&r.status==='waiting'){assert(!p.ready&&p.field.includes(cmd.code),'เลือกผู้นำก่อนกดพร้อม');p.leader=cmd.code;return}
   if(cmd.type==='ready'||cmd.type==='mulligan'){assert(r.phase==='setup'&&r.setupSeat===s&&!p.ready,'รอจัดมือเริ่มต้นตามลำดับ');if(cmd.type==='mulligan'){assert(!p.mulligan,'เปลี่ยนมือได้ครั้งเดียว');const ids=cmd.indices;assert(Array.isArray(ids)&&new Set(ids).size===ids.length&&ids.every(i=>Number.isInteger(i)&&i>=0&&i<p.hand.length),'เลือกไพ่ไม่ถูกต้อง');const old=[...ids].sort((a,b)=>b-a).map(i=>p.hand.splice(i,1)[0]);p.deck.push(...old);p.hand.push(...p.deck.splice(0,old.length));shuffle(p.deck);p.mulligan=true;this.log(p.name+' · มัลลิแกน '+old.length+' ใบ')}else{p.ready=true;if(r.players.every(x=>x.ready))this.begin();else r.setupSeat=1-s}return}
   assert(r.status==='playing','รอเริ่มเกม');
+  if(cmd.type==='draw'){assert(r.phase==='draw'&&r.active===s,'จั่วได้ครั้งเดียวใน Draw ของคุณ');this.drawTurn();return}
+  if(cmd.type==='beginBattle'){assert(r.phase==='action'&&r.active===s,'เข้า Battle ได้หลัง Main ของคุณเท่านั้น');this.enterBattle();return}
   if(cmd.type==='tableMove'){const c=p.table.find(x=>x.id===cmd.id);assert(c&&c.zone===cmd.zone,'ย้ายตำแหน่งได้ในเขตเดิมเท่านั้น');this.position(c,cmd);return}
-  if(cmd.type==='tableTake'){const c=this.staged(s);assert(c&&c.id===cmd.id&&!p.locked&&cmd.to==='hand'&&(r.phase==='action'&&r.active===s||r.phase==='defense'&&r.active!==s),'เก็บกลับมือได้เฉพาะการ์ดที่ยังไม่ยืนยัน');p.hand.push(c.code);p.table=p.table.filter(x=>x.id!==c.id);return}
+  if(cmd.type==='tableTake'){const c=this.staged(s);assert(c&&c.id===cmd.id&&!p.locked&&cmd.to==='hand'&&(r.phase==='battle'&&r.active===s||r.phase==='defense'&&r.active!==s),'เก็บกลับมือได้เฉพาะการ์ดที่ยังไม่ยืนยัน');p.hand.push(c.code);p.table=p.table.filter(x=>x.id!==c.id);return}
   assert(cmd.type!=='tableFlip','แอ็กชันต้องเปิดพร้อมกัน และคอนแชร์โตต้องหงายเสมอ');
   if(cmd.type==='tablePlace'){assert(Number.isInteger(cmd.index)&&p.hand[cmd.index]===cmd.code,'การ์ดบนมือเปลี่ยนแล้ว');assert(['action','concerto'].includes(cmd.zone),'พื้นที่ไม่ถูกต้อง');
    if(cmd.zone==='concerto'){assert(r.phase==='action'&&r.active===s&&!p.used.charge,'ชาร์จได้ครั้งเดียวในแอ็กชันเฟสของคุณ');p.used.charge=true}
-   else{assert(r.phase==='action'&&r.active===s||r.phase==='defense'&&r.active!==s,'ยังไม่ถึงช่วงลงแอ็กชันของคุณ');assert(!this.staged(s)&&!p.locked,'ลงแอ็กชันได้ 1 ใบ');assert(this.legal(s,cmd.code),'ค่าร่ายไม่พอ หรือผู้นำไม่ตรงเงื่อนไขการ์ด')}
+   else{assert(r.phase==='battle'&&r.active===s||r.phase==='defense'&&r.active!==s,'ยังไม่ถึงช่วงลงแอ็กชันของคุณ');assert(!this.staged(s)&&!p.locked,'ลงแอ็กชันได้ 1 ใบ');assert(this.legal(s,cmd.code),'ค่าร่ายไม่พอ หรือผู้นำไม่ตรงเงื่อนไขการ์ด')}
    const c={id:uid(),code:p.hand[cmd.index],zone:cmd.zone,faceDown:cmd.zone==='action'};this.position(c,cmd);p.hand.splice(cmd.index,1);p.table.push(c);this.log(p.name+(cmd.zone==='action'?' · เซ็ตการ์ดคว่ำ':' · ชาร์จ '+this.c(cmd.code).name));return;
   }
   if(cmd.type==='leader'){assert(r.phase==='action'&&r.active===s&&!p.used.switch,'เปลี่ยนผู้นำได้ครั้งเดียวในแอ็กชันเฟส');this.switch(s,cmd.code);p.used.switch=true;return}
   if(cmd.type==='level'){assert(r.phase==='action'&&r.active===s&&!p.used.level,'อัปเลเวลได้ครั้งเดียวในแอ็กชันเฟส');this.upgrade(s,cmd.code,false,cmd.indices);p.used.level=true;return}
-  if(cmd.type==='resolveTable'){const c=this.staged(s);assert(c&&!p.locked,'ลงการ์ดแอ็กชันก่อน');assert(r.phase==='action'&&r.active===s||r.phase==='defense'&&r.active!==s,'ยังไม่ใช่ช่วงยืนยันของคุณ');assert(this.legal(s,c.code),'ไม่สามารถใช้การ์ดนี้ได้');p.payment=this.payment(s,c.code,cmd.payment);p.locked=true;if(r.phase==='action'){r.phase='defense';this.fieldEvents('battleStart')}else this.openDuel();return}
-  if(cmd.type==='pass'){assert(!this.staged(s),'เก็บการ์ดที่เซ็ตกลับมือก่อน');if(r.phase==='action'&&r.active===s){r.lastWinner=1-s;this.log(p.name+' · ข้ามการประลอง');this.end()}else{assert(r.phase==='defense'&&r.active!==s,'ผ่านได้เมื่อรอตอบโต้');p.locked=true;this.openDuel()}return}
+  if(cmd.type==='resolveTable'){const c=this.staged(s);assert(c&&!p.locked,'ลงการ์ดแอ็กชันก่อน');assert(r.phase==='battle'&&r.active===s||r.phase==='defense'&&r.active!==s,'ยังไม่ใช่ช่วงยืนยันของคุณ');assert(this.legal(s,c.code),'ไม่สามารถใช้การ์ดนี้ได้');p.payment=this.payment(s,c.code,cmd.payment);p.locked=true;if(r.phase==='battle'){r.phase='defense'}else this.openDuel();return}
+  if(cmd.type==='pass'){assert(!this.staged(s),'เก็บการ์ดที่เซ็ตกลับมือก่อน');if(r.phase==='battle'&&r.active===s){r.lastWinner=1-s;this.log(p.name+' · ข้ามการประลอง');this.end()}else{assert(r.phase==='defense'&&r.active!==s,'ผ่านได้เมื่อรอตอบโต้');p.locked=true;this.openDuel()}return}
   if(cmd.type==='combo'){assert(r.phase==='combo'&&r.comboSeat===s,'ยังไม่ถึงคอมโบของคุณ');this.combo(s,cmd.index,cmd.payment);return}
   if(cmd.type==='end'||cmd.type==='nextRound'){assert(r.phase==='combo'&&r.comboSeat===s||r.phase==='result'&&(r.active===s||this.p(r.active).isBot),'ยังจบเทิร์นไม่ได้');this.end();return}
   throw Error('กฎจริงกำหนดการจั่ว/สับตามเฟสและเอฟเฟกต์ ไม่สามารถใช้คำสั่งอิสระนี้');
@@ -90,14 +92,16 @@ class Game{
   if(r.queue.length){this.process(r.queue.shift());continue}
   if(r.phase==='setup'&&this.p(r.setupSeat).isBot){this.p(r.setupSeat).ready=true;if(r.players.every(p=>p.ready))this.begin();else r.setupSeat=1-r.setupSeat;continue}
   if(r.status!=='playing')return;
+  if(r.phase==='draw'&&this.p(r.active).isBot){this.drawTurn();continue}
   if(r.phase==='action'&&this.p(r.active).isBot){this.botAction(r.active);continue}
+  if(r.phase==='battle'&&this.p(r.active).isBot){this.botBattle(r.active);continue}
   if(r.phase==='defense'&&this.p(1-r.active).isBot){this.botDefend(1-r.active);continue}
   if(r.phase==='combo'&&this.p(r.comboSeat).isBot){const s=r.comboSeat,i=this.p(s).hand.findIndex(code=>this.legal(s,code,true));if(i>=0&&r.comboLeft!==0&&this.p(s).flags.noComboTurn!==r.turn)this.combo(s,i);else this.end();continue}
   if(r.phase==='result'&&this.p(r.active).isBot){this.end();continue}
   return;
  }assert(r.status==='finished','ขั้นตอนเอฟเฟกต์ยาวเกินไป กรุณาตรวจสอบ')}
  process(o){const r=this.r,p=this.p(o.seat);switch(o.type){
-  case 'drawPhase':this.takeTop(r.active,r.turn===1?1:2);if(r.status==='playing')r.phase='action';break;
+  case 'drawPhase':if(r.status==='playing')r.phase='draw';break;
   case 'draw':this.takeTop(o.seat,o.n,'hand',o.reveal);break;
   case 'drawUpTo':this.request('drawUpTo',o.seat,'เลือกจำนวนการ์ดที่จะเปิดขึ้นมือ',Array.from({length:o.n+1},(_,n)=>({value:String(n),label:n+' ใบ'})));break;
   case 'charge':this.takeTop(o.seat,o.n,'concerto',true);break;
@@ -139,7 +143,12 @@ class Game{
  botAnswer(){const q=this.r.choice;if(q.type==='discard'){const p=this.p(q.seat);const ids=p.hand.map((code,i)=>({i,c:this.c(code)})).sort((a,b)=>Number(b.c.fee)-Number(a.c.fee)).slice(0,q.count).map(x=>x.i);this.answer({indices:ids});return}let value=q.type==='drawUpTo'?q.options.at(-1).value:q.options[0].value;if(q.type==='switch'&&q.expected)value=q.options.find(x=>this.c(x.value).character===q.expected)?.value||value;this.answer({value})}
  botAction(s){const p=this.p(s);if(!p.used.charge&&p.hand.length){const i=p.hand.map((code,i)=>({code,i,fee:this.cost(s,code)})).sort((a,b)=>b.fee-a.fee)[0].i;const code=p.hand.splice(i,1)[0];p.table.push({id:uid(),code,zone:'concerto',x:.5,y:Math.min(.85,this.energy(s).length*.14),faceDown:false});p.used.charge=true;this.log(p.name+' · ชาร์จ '+this.c(code).name)}
   if(!p.used.level){const target=p.reserve.find(code=>{const c=this.c(code),old=p.field.find(x=>this.c(x).character===c.character);return code!=='BP01-011'&&old&&Number(c.level)===Number(this.c(old).level)+1&&p.hand.length>=Number(c.level)+2&&code.startsWith('SD')});if(target){this.upgrade(s,target,false,Array.from({length:Number(this.c(target).level)},(_,i)=>p.hand.length-1-i));p.used.level=true;return}}
-  const legal=p.hand.map((code,i)=>({code,i})).filter(x=>this.legal(s,x.code));if(!legal.length){this.r.lastWinner=1-s;this.end();return}legal.sort((a,b)=>this.baseDamage(s,b.code)-this.baseDamage(s,a.code));const pick=this.r.difficulty==='easy'?legal[randomInt(legal.length)]:legal[0];this.botSet(s,pick);this.r.phase='defense';this.fieldEvents('battleStart');
+  this.enterBattle();
+ }
+ drawTurn(){const r=this.r,n=r.turn===1?1:2;this.takeTop(r.active,n);this.log(this.p(r.active).name+' · จั่ว '+n+' ใบใน Draw');if(r.status==='playing')r.phase='action'}
+ enterBattle(){this.r.phase='battle';this.log(this.p(this.r.active).name+' · เข้าสู่ Battle');this.fieldEvents('battleStart')}
+ botBattle(s){const p=this.p(s);
+  const legal=p.hand.map((code,i)=>({code,i})).filter(x=>this.legal(s,x.code));if(!legal.length){this.r.lastWinner=1-s;this.end();return}legal.sort((a,b)=>this.baseDamage(s,b.code)-this.baseDamage(s,a.code));const pick=this.r.difficulty==='easy'?legal[randomInt(legal.length)]:legal[0];this.botSet(s,pick);this.r.phase='defense';
  }
  botSet(s,pick){const p=this.p(s);p.hand.splice(pick.i,1);p.table.push({id:uid(),code:pick.code,zone:'action',x:.3,y:.5,faceDown:true});p.payment=this.payment(s,pick.code);p.locked=true;this.log(p.name+' · เซ็ตการ์ดคว่ำ')}
  botDefend(s){const legal=this.p(s).hand.map((code,i)=>({code,i})).filter(x=>this.legal(s,x.code));if(legal.length){legal.sort((a,b)=>this.baseDamage(s,b.code)-this.baseDamage(s,a.code));this.botSet(s,this.r.difficulty==='easy'?legal[randomInt(legal.length)]:legal[0])}this.openDuel()}

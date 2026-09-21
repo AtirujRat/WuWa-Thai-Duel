@@ -1,5 +1,6 @@
+import {displayPhase} from './phase-track.js';
 // Draw and card handling use user-provided local recordings; flips are synthesized.
-let context,enabled=true,previous=null,drawBufferPromise,handleBufferPromise;
+let context,enabled=true,previous=null,drawBufferPromise,handleBufferPromise,phaseBufferPromise;
 function loadDrawSound(){
  if(!context)return;
  drawBufferPromise??=fetch("/audio/card-draw.mp3").then(r=>{if(!r.ok)throw Error("Draw audio unavailable");return r.arrayBuffer()}).then(data=>context.decodeAudioData(data)).catch(()=>{drawBufferPromise=null;return null});
@@ -8,20 +9,25 @@ function loadDrawSound(){
 function loadHandleSound(){
  if(!context)return;
  handleBufferPromise??=fetch('/audio/card-handle.mp3').then(r=>{if(!r.ok)throw Error('Card handling audio unavailable');return r.arrayBuffer()}).then(data=>context.decodeAudioData(data)).catch(()=>{handleBufferPromise=null;return null});
- return handleBufferPromise;
+ return handleBufferPromise,phaseBufferPromise;
+}
+function loadPhaseSound(){
+ if(!context)return;
+ phaseBufferPromise??=fetch('/audio/phase-change.mp3').then(r=>{if(!r.ok)throw Error('Phase audio unavailable');return r.arrayBuffer()}).then(data=>context.decodeAudioData(data)).catch(()=>{phaseBufferPromise=null;return null});
+ return phaseBufferPromise;
 }
 try{enabled=localStorage.getItem('wuwa-sound')!=='off'}catch{}
 const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 function unlock(){
  if(!enabled)return;
- try{context??=new (window.AudioContext||window.webkitAudioContext)();if(context.state==='suspended')context.resume().catch(()=>{});loadDrawSound();loadHandleSound()}catch{}
+ try{context??=new (window.AudioContext||window.webkitAudioContext)();if(context.state==='suspended')context.resume().catch(()=>{});loadDrawSound();loadHandleSound();loadPhaseSound()}catch{}
 }
 document.addEventListener('pointerdown',unlock,{passive:true});
 document.addEventListener('keydown',unlock);
 export function sound(kind){
  if(!enabled||document.hidden||!context||context.state!=='running')return;
- if(['draw','lift','place'].includes(kind)){
-  (kind==='draw'?loadDrawSound():loadHandleSound())?.then(buffer=>{if(!buffer||!enabled||document.hidden||context.state!=='running')return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=.7;source.connect(gain);gain.connect(context.destination);source.start();source.onended=()=>{source.disconnect();gain.disconnect()}});
+ if(['draw','lift','place','phase'].includes(kind)){
+  (kind==='phase'?loadPhaseSound():kind==='draw'?loadDrawSound():loadHandleSound())?.then(buffer=>{if(!buffer||!enabled||document.hidden||context.state!=='running')return;const source=context.createBufferSource(),gain=context.createGain();source.buffer=buffer;gain.gain.value=kind==='phase'?.4:.7;source.connect(gain);gain.connect(context.destination);source.start();source.onended=()=>{source.disconnect();gain.disconnect()}});
   return;
  }
  const t=context.currentTime;
@@ -51,6 +57,7 @@ export function updateEffects(room,visible){
  if(!room||!visible){previous=null;return}
  const next=structuredClone(room),old=previous;previous=next;
  if(!old||old.code!==room.code||old.version===room.version)return;
+ if(displayPhase(old)!==displayPhase(room)&&!['setup','finished'].includes(displayPhase(room)))sound('phase');
  let effect=null,drew=false;
  room.players.forEach((p,seat)=>{
   const before=old.players[seat];if(!before)return;
@@ -64,3 +71,4 @@ export function updateEffects(room,visible){
  });
  if(drew)sound('draw');else if(effect)sound(effect);
 }
+

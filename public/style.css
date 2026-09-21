@@ -88,3 +88,19 @@ body{--battle-log-width:clamp(180px,17vw,245px)}body.has-battle-log{padding-left
 @media(max-width:1000px){body{--battle-log-width:170px}.has-battle-log.battle-view header nav span{display:none}.has-battle-log.battle-view header button{font-size:11px;padding:4px}.has-battle-log .phase-caption,.has-battle-log .phase-note{display:none}.has-battle-log .phase-track ol{gap:12px}.has-battle-log .phase-track li{padding:4px 6px;font-size:12px}}
 @media(max-width:650px){body{--battle-log-width:130px}.battle-log-heading{font-size:12px;padding:5px}.battle-log-entry{padding:5px}.log-meta{flex-wrap:wrap}.battle-log-entry p{font-size:11px}.has-battle-log.battle-view header .brand{display:none}}
 @media(prefers-reduced-motion:reduce){.log-arrive{animation:none}}
+
+/* Wider, more readable side panels on desktop. */
+@media(min-width:1001px){body{--battle-log-width:clamp(240px,21vw,340px);--card-info-width:clamp(300px,29vw,440px)}
+.battle-log-heading,.card-info-heading{font-size:18px;padding:12px 14px}
+.battle-log-entry{padding:12px;margin-bottom:10px}.battle-log-entry p{font-size:16px;line-height:1.8}.log-meta strong{font-size:14px}.log-meta time,.log-status{font-size:12px}
+#card-info .card-info-content{padding:20px}#card-info #detailArt{max-width:290px;max-height:40dvh}#card-info h2{font-size:26px}#card-info .effect{font-size:18px;line-height:1.9}#card-info .muted,#card-info label,#card-info a,#card-info .badge{font-size:15px}
+.has-battle-log.has-card-info .phase-caption,.has-battle-log.has-card-info .phase-note{display:none}
+.has-battle-log.has-card-info .phase-track ol{gap:13px}.has-battle-log.has-card-info .phase-track li{padding:4px 7px;font-size:13px}
+.has-battle-log.has-card-info header .brand{display:none}.has-battle-log.has-card-info header nav{width:auto}.has-battle-log.has-card-info header nav span{display:none}
+}
+
+/* Give the player's hand more room while keeping the table in one viewport. */
+.battle-shell{grid-template-rows:36px minmax(0,1fr) auto minmax(0,1fr) clamp(130px,21dvh,230px)}
+.battle-shell .hand{gap:10px;min-width:0;flex:1}
+.hand-dock{min-width:0;padding:5px 4px}
+@media(max-height:650px){.battle-shell{grid-template-rows:32px minmax(0,1fr) auto minmax(0,1fr) clamp(100px,21dvh,136px)}}
