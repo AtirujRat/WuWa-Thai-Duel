@@ -1,6 +1,7 @@
 export function displayPhase(room){
-const current=room.status==='finished'?'finished':room.status==='waiting'||['waiting','order','setup'].includes(room.phase)?'setup':room.rulesVersion?({start:'draw',draw:'draw',action:'main',battle:'battle',defense:'battle',reveal:'battle',judgment:'battle',combo:'combo',comboEffects:'combo',result:'end',end:'end'}[room.phase]||'main'):room.botPhase==='result'?'end':'main';
- 
+ if(!room)return 'setup';
+ const current=room.status==='finished'?'finished':room.status==='waiting'||['waiting','order','setup'].includes(room.phase)?'setup':room.rulesVersion?({start:'draw',draw:'draw',action:'main',battle:'battle',defense:'battle',reveal:'battle',judgment:'battle',combo:'combo',comboEffects:'combo',result:'end',end:'end'}[room.phase]||'main'):room.botPhase==='result'?'end':'main';
+ return current;
 }
 export function phaseTrack(room){
  const steps=[['draw','Draw','จั่ว'],['main','Main','เตรียมการ์ด'],['battle','Battle','ตัดสิน'],['combo','Combo','โจมตีต่อ'],['end','End','จบเทิร์น']];

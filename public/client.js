@@ -2,7 +2,7 @@ import {updateBattleLog} from './battle-log.js';
 import {formatCardText} from './card-text.js';
 import {phaseTrack} from './phase-track.js';
 import {rulesBoard,setupRulesUI,showRuleCard,opponentHand} from './rules-ui.js';
-import {installSound,pickup,release,updateEffects} from './card-fx.js';
+import {installSound,pickup,release,updateEffects,sound} from './card-fx.js';
 installSound();
 import {validateDeck,presetDeck} from './deck-rules.js';
 let placeFaceDown=false,tableDrag=null,suppressTableClick=false;
@@ -16,6 +16,11 @@ function playmat(p,mine,live){
 document.addEventListener('change',e=>{if(e.target.name==='placement')placeFaceDown=e.target.value==='down'});
 document.addEventListener('click',async e=>{
  if(suppressTableClick){e.preventDefault();e.stopImmediatePropagation();return}
+ const inPlay=(tab==='play'&&!!room&&!inLobby)||document.body.classList.contains('battle-view')||!!document.querySelector('.battle-shell');
+ if(inPlay){
+  const cardEl=e.target.closest('.card, .mat-card, [data-detail], [data-hand-drag], [data-table-drag], [data-table-menu], [data-place-hand], [data-fx-card], [data-rule="combo"], [data-rule="reserve"], [data-rule="levelPick"], [data-rule="place"], [data-rule="return"], .character-slot, .rule-picks label, .rule-picks > div');
+  if(cardEl)sound('card');
+ }
  const menu=e.target.closest('[data-table-menu]'),place=e.target.closest('[data-place-hand]'),command=e.target.closest('[data-table-command]');
  if(menu&&room.rulesVersion){e.stopImmediatePropagation();showRuleCard(menu.dataset.tableMenu);return}if(menu){e.stopImmediatePropagation();const c=room.players[room.seat].table.find(c=>c.id===menu.dataset.tableMenu);detail(c.code,`<p>${c.faceDown?'การ์ดนี้คว่ำอยู่ คู่เล่นมองไม่เห็นหน้าการ์ด':'การ์ดนี้หงายอยู่'}</p><div class="row"><button data-table-command="tableFlip" data-id="${c.id}">${c.faceDown?'หงาย':'คว่ำ'}การ์ด</button><button data-table-command="tableTake" data-id="${c.id}" data-to="hand">กลับมือ</button>${room.mode==='bot'?'':`<button data-table-command="tableTake" data-id="${c.id}" data-to="trash">กองทิ้ง</button>`}</div>`)}
  if(place&&room.rulesVersion){e.stopImmediatePropagation();showRuleCard(null,Number(place.dataset.placeHand));return}if(place){pickup(null);e.stopImmediatePropagation();const i=Number(place.dataset.placeHand);dialog.innerHTML=`<h2>วาง ${esc(card(room.players[room.seat].hand[i]).name)}</h2><p>ลงแบบ${placeFaceDown?'คว่ำ':'หงาย'} · เปลี่ยนได้ที่ตัวเลือกเหนือสนาม</p><div class="row">${['action','concerto'].map(z=>`<button data-table-command="tablePlace" data-index="${i}" data-zone="${z}">${z==='action'?'สนามแอ็กชัน':'ช่องซ้ายแนวนอน'}</button>`).join('')}${btn('close','ปิด')}</div>`;dialog.showModal()}

@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import {key,makePlayer,publicRoom,act} from './engine.mjs';
 import {presetDeck} from './public/deck-rules.js';
 const root=path.dirname(fileURLToPath(import.meta.url));
-const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.webp':'image/webp'};
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.webp':'image/webp','.mp3':'audio/mpeg'};
 const dataDir=process.env.DATA_DIR||path.join(root,'data');fs.mkdirSync(dataDir,{recursive:true});const dataFile=path.join(dataDir,'demo-v2.json');
 const legacyFile=path.join(dataDir,'demo.json');if(!fs.existsSync(dataFile)&&fs.existsSync(legacyFile))fs.copyFileSync(legacyFile,dataFile);
 const state=fs.existsSync(dataFile)?JSON.parse(fs.readFileSync(dataFile,'utf8')):{profiles:{},rooms:{}};
