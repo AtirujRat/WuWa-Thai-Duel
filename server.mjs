@@ -21,7 +21,7 @@ const server=http.createServer(async(req,res)=>{try{
  const url=new URL(req.url,'http://localhost');
  if(url.pathname.startsWith('/api/')){
   if(!['GET','POST'].includes(req.method))return json(res,{error:'Method not allowed'},405);
-  if(req.headers.origin&&req.headers.origin!==`http://${req.headers.host}`)return json(res,{error:'Origin not allowed'},403);
+  if(req.headers.origin&&!['http:','https:'].some(protocol=>req.headers.origin===`${protocol}//${req.headers.host}`))return json(res,{error:'Origin not allowed'},403);
   let id=(req.headers.cookie||'').match(/(?:^|;\s*)wuwa=([A-Za-z0-9_-]+)/)?.[1];
   if(!id||!Object.hasOwn(state.profiles,id)){id=key();state.profiles[id]={decks:[]};save();res.setHeader('Set-Cookie',`wuwa=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`)}
   const profile=state.profiles[id];let b={};if(req.method==='POST'){
