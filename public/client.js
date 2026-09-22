@@ -557,6 +557,7 @@ function board() {
 
 let inLobby = false;
 function render() {
+  saveDraft();
   document.body.classList.toggle("deck-builder-view",tab === "decks");
   document.body.classList.toggle(
     "battle-view",
@@ -588,7 +589,23 @@ function render() {
   updateEffects(room, tab === "play" && !inLobby);
   updateBattleLog(room, tab === "play" && !inLobby);
 }
+const LOCAL_DECKS_KEY='wuwa-saved-decks-v1', LOCAL_DRAFT_KEY='wuwa-deck-draft-v1';
+let deckStorageReady=false,storageWarningShown=false;
+function readDeckStorage(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
+function isStoredDeck(d){return d&&typeof d.name==='string'&&d.entries&&typeof d.entries==='object'&&!Array.isArray(d.entries)&&Object.entries(d.entries).every(([code,n])=>/^[A-Za-z0-9-]+$/.test(code)&&Number.isInteger(n)&&n>0&&n<=3)}
+function storeDeckData(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true}catch{if(!storageWarningShown){toast('บันทึกในเบราว์เซอร์ไม่ได้ กรุณาส่งออกเด็คเก็บไว้');storageWarningShown=true}return false}}
+function saveDraft(){if(deckStorageReady)storeDeckData(LOCAL_DRAFT_KEY,deck)}
+function loadLocalDecks(remote){
+ const local=readDeckStorage(LOCAL_DECKS_KEY,[]);
+ saved=(Array.isArray(local)?local:[]).filter(d=>isStoredDeck(d)&&typeof d.id==='string'&&/^[A-Za-z0-9_-]+$/.test(d.id));
+ for(const d of remote||[])if(isStoredDeck(d)&&typeof d.id==='string'&&/^[A-Za-z0-9_-]+$/.test(d.id)&&!saved.some(x=>x.id===d.id))saved.push(d);
+ storeDeckData(LOCAL_DECKS_KEY,saved);
+ const draft=readDeckStorage(LOCAL_DRAFT_KEY,null);if(isStoredDeck(draft))deck=draft;
+ deckStorageReady=true;
+}
+
 function refreshDeck() {
+  saveDraft();
   if (tab === "decks") {
     const main = $(".deck-builder-main");
     if (main) {
@@ -831,10 +848,12 @@ document.addEventListener("click", async (e) => {
       return;
     }
     if (doIt === "save") {
-      deck = await api("/api/decks", deck);
-      saved = await api("/api/decks");
+      const nextDeck={...structuredClone(deck),id:deck.id||crypto.randomUUID()};
+      const nextSaved=saved.filter(d=>d.id!==nextDeck.id).concat(nextDeck);
+      if(!storeDeckData(LOCAL_DECKS_KEY,nextSaved))return;
+      deck=nextDeck;saved=nextSaved;saveDraft();
       if (tab === "decks") render();
-      toast("บันทึกเด็คแล้ว");
+      toast("บันทึกเด็คในเบราว์เซอร์นี้แล้ว");
       return;
     }
     if (doIt === "load" || doIt === "use") {
@@ -984,7 +1003,7 @@ document.addEventListener("input", (e) => {
     page = 1;
     $("#results").innerHTML = results();
   }
-  if (e.target.id === "deckName") deck.name = e.target.value;
+  if (e.target.id === "deckName") {deck.name = e.target.value;saveDraft();}
   if (e.target.id === "actionSearch") {
     actionQuery = e.target.value;
     const g = $("#actionGrid");
@@ -1045,8 +1064,9 @@ try {
   [cards, meta, saved] = await Promise.all([
     api("/cards.json"),
     api("/catalog-meta.json"),
-    api("/api/decks"),
+    api("/api/decks").catch(()=>[]),
   ]);
+  loadLocalDecks(saved);
   const last = sessionStorage.getItem("wuwa-room");
   if (last) {
     try {
