@@ -1,6 +1,6 @@
 import {displayPhase} from './phase-track.js';
 // Draw and card handling use user-provided local recordings; flips are synthesized.
-let context,enabled=true,previous=null,drawBufferPromise,handleBufferPromise,phaseBufferPromise;
+let context,enabled=true,previous=null,drawBufferPromise,handleBufferPromise,phaseBufferPromise,clickBufferPromise;
 function loadDrawSound(){
  if(!context)return null;
  drawBufferPromise??=fetch("/audio/card-draw.mp3").then(r=>{if(!r.ok)throw Error("Draw audio unavailable");return r.arrayBuffer()}).then(data=>context.decodeAudioData(data)).catch(()=>{drawBufferPromise=null;return null});
@@ -16,6 +16,11 @@ function loadPhaseSound(){
  phaseBufferPromise??=fetch('/audio/phase-change.mp3').then(r=>{if(!r.ok)throw Error('Phase audio unavailable');return r.arrayBuffer()}).then(data=>context.decodeAudioData(data)).catch(()=>{phaseBufferPromise=null;return null});
  return phaseBufferPromise;
 }
+function loadClickSound(){
+ if(!context)return null;
+ clickBufferPromise??=fetch('/audio/click-card.mp3').then(r=>{if(!r.ok)throw Error('Click card audio unavailable');return r.arrayBuffer()}).then(data=>context.decodeAudioData(data)).catch(()=>{clickBufferPromise=null;return null});
+ return clickBufferPromise;
+}
 try{enabled=localStorage.getItem('wuwa-sound')!=='off'}catch{}
 const reduced=()=>matchMedia('(prefers-reduced-motion: reduce)').matches;
 function ensureContext(){
@@ -23,7 +28,7 @@ function ensureContext(){
  try{
   context??=new (window.AudioContext||window.webkitAudioContext)();
   if(context.state==='suspended')context.resume().catch(()=>{});
-  loadDrawSound();loadHandleSound();loadPhaseSound();
+  loadDrawSound();loadHandleSound();loadPhaseSound();loadClickSound();
   return context;
  }catch{return null}
 }
@@ -41,13 +46,13 @@ export function sound(kind){
   return;
  }
  if(ctx.state!=='running')return;
- if(['draw','lift','place','phase','card','handle'].includes(kind)){
-  const promise=kind==='phase'?loadPhaseSound():kind==='draw'?loadDrawSound():loadHandleSound();
+ if(['draw','lift','place','phase','card','handle','click'].includes(kind)){
+  const promise=kind==='phase'?loadPhaseSound():kind==='draw'?loadDrawSound():(kind==='click'||kind==='lift')?loadClickSound():loadHandleSound();
   promise?.then(buffer=>{
    if(!buffer||!enabled||document.hidden||ctx.state!=='running')return;
    const source=ctx.createBufferSource(),gain=ctx.createGain();
    source.buffer=buffer;
-   gain.gain.value=kind==='phase'?.55:.7;
+   gain.gain.value=kind==='phase'?.55:kind==='click'||kind==='lift'?.75:.7;
    source.connect(gain);
    gain.connect(ctx.destination);
    source.start();
@@ -93,7 +98,7 @@ export function updateEffects(room,visible){
    if(kind){animate(document.querySelector(`[data-fx-card="${c.id}"]`),kind);effect=kind==='flip'?'flip':effect||kind}
   }
   if(p.action.length>before.action.length){document.querySelectorAll(`${seat===room.seat?'.own-mat':'.opponent-mat'} .mat-action .mat-card`).forEach(el=>animate(el,'flip'));effect='flip'}
-  if(seat===room.seat&&p.hand.length>before.hand.length){document.querySelectorAll('.hand .card').forEach((el,i)=>{if(i>=before.hand.length)animate(el,'place')});if(p.deckCount<before.deckCount||before.deckCount===0&&p.trash.length<before.trash.length)drew=true;else effect??='lift'}
+  if(seat===room.seat&&p.hand.length>before.hand.length){document.querySelectorAll('.hand .card').forEach((el,i)=>{if(i>=before.hand.length)animate(el,'place')});if(p.deckCount<before.deckCount||p.reserveCount<before.reserveCount||before.deckCount===0&&p.trash.length<before.trash.length)drew=true;else effect??='lift'}
  });
  if(drew){
   sound('draw');

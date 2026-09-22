@@ -18,8 +18,10 @@ document.addEventListener('click', async e => {
     if (suppressTableClick) { e.preventDefault(); e.stopImmediatePropagation(); return }
     const inPlay = tab === 'play' && !inLobby && (!!room || document.body.classList.contains('battle-view') || !!document.querySelector('.battle-shell'));
     if (inPlay) {
+        const handCard = e.target.closest('.hand .card, .hand [data-hand-drag], .hand [data-place-hand]');
         const cardEl = e.target.closest('.card, .mat-card, [data-detail], [data-hand-drag], [data-table-drag], [data-table-menu], [data-place-hand], [data-fx-card], [data-rule="combo"], [data-rule="reserve"], [data-rule="levelPick"], [data-rule="place"], [data-rule="return"], .character-slot, .rule-picks label, .rule-picks > div');
-        if (cardEl) sound('card');
+        if (handCard) sound('click');
+        else if (cardEl) sound('card');
     }
     const menu = e.target.closest('[data-table-menu]'), place = e.target.closest('[data-place-hand]'), command = e.target.closest('[data-table-command]');
     if (menu && room.rulesVersion) { e.stopImmediatePropagation(); showRuleCard(menu.dataset.tableMenu); return } if (menu) { e.stopImmediatePropagation(); const c = room.players[room.seat].table.find(c => c.id === menu.dataset.tableMenu); detail(c.code, `<p>${c.faceDown ? 'การ์ดนี้คว่ำอยู่ คู่เล่นมองไม่เห็นหน้าการ์ด' : 'การ์ดนี้หงายอยู่'}</p><div class="row"><button data-table-command="tableFlip" data-id="${c.id}">${c.faceDown ? 'หงาย' : 'คว่ำ'}การ์ด</button><button data-table-command="tableTake" data-id="${c.id}" data-to="hand">กลับมือ</button>${room.mode === 'bot' ? '' : `<button data-table-command="tableTake" data-id="${c.id}" data-to="trash">กองทิ้ง</button>`}</div>`) }
