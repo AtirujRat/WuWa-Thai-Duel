@@ -400,10 +400,13 @@ const btn = (action, label, extra = "", cls = "") =>
   `<button class="${cls}" data-do="${action}" ${extra}>${label}</button>`;
 const img = (c) =>
   `<img class="art" src="${esc(c.img)}" alt="${esc(c.name)} ${c.code}" loading="lazy">`;
-function tile(c, add = true) {
-  const locked = add && c.type === "character";
-  return `<article class="card ${locked ? "locked-card" : ""}"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="code">${c.code}</span>${locked ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ต</span>' : add ? btn("add", "+", `data-code="${c.code}" aria-label="เพิ่ม ${esc(c.name)} ลงเด็ค"`, "add") : ""}</div><h3>${esc(c.name)}</h3><div class="card-meta">${c.type === "character" ? "ตัวละคร · Lv. " + c.level : c.color + " · ค่าใช้ " + c.fee + " · พลัง " + c.damage}</div></article>`;
+function tile(c) {
+  const variantPills = c.variants && c.variants.length > 1
+    ? `<div class="tile-variants">${c.variants.map((v, i) => `<button class="tile-variant-thumb ${i === 0 ? "active" : ""}" data-detail="${c.code}" data-variant-img="${esc(v.img)}" aria-label="${esc(c.name)} เวอร์ชัน ${v.rarity}" title="${v.rarity}"><img src="${v.img}" alt="${v.rarity}" loading="lazy"><span class="tile-variant-rarity">${v.rarity}</span></button>`).join("")}</div>`
+    : "";
+  return `<article class="card"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="code">${c.code}</span></div><h3>${esc(c.name)}</h3><div class="card-meta">${c.type === "character" ? "ตัวละคร · Lv. " + c.level : c.color + " · ค่าใช้ " + c.fee + " · พลัง " + c.damage}</div>${variantPills}</article>`;
 }
+
 function filters() {
   return `<div class="toolbar"><input class="search" id="search" aria-label="ค้นหาการ์ด" placeholder="ค้นหาชื่อ ความสามารถ หรือรหัสการ์ด…" value="${esc(query)}"><select id="set" aria-label="ชุดการ์ด"><option value="">ทุกชุด</option>${["SD01", "SD02", "BP01"].map((s) => `<option ${set === s ? "selected" : ""}>${s}</option>`).join("")}</select><select id="kind" aria-label="ประเภท"><option value="">ทุกประเภท</option><option value="character" ${kind === "character" ? "selected" : ""}>ตัวละคร</option><option value="action" ${kind === "action" ? "selected" : ""}>แอ็กชัน</option></select><select id="character" aria-label="ตัวละคร"><option value="">ทุกตัวละคร</option>${[...new Set(cards.map((c) => c.character))].map((s) => `<option ${character === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></div>`;
 }
@@ -605,13 +608,14 @@ function refreshDeck() {
     if (summary) summary.outerHTML = deckSummaryBar();
   }
 }
-function detail(code, extra = "") {
+function detail(code, extra = "", variantImg = null) {
   const c = card(code);
   if (!c) return;
   if (dialog.open) dialog.close();
   const panel = $("#card-info");
   panel.hidden = false;
   document.body.classList.add("has-card-info");
+  const inCatalog = tab === "cards";
   const inDeck = deck.entries[code] || 0;
   const actionCount = Object.keys(deck.entries)
     .map((k) => card(k))
@@ -619,9 +623,28 @@ function detail(code, extra = "") {
     .reduce((s, item) => s + (deck.entries[item.code] || 0), 0);
   const isMax =
     c.type === "character" ? inDeck >= 1 : inDeck >= 3 || actionCount >= 40;
-  panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong><button data-do="closeCardInfo" aria-label="ปิดรายละเอียดการ์ด">✕</button></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${c.tags.map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${c.variants.map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
+  const initialImg = variantImg || c.img;
+  // Variant display: gallery in catalog tab, dropdown select elsewhere
+  const variantSection = inCatalog
+    ? `<div class="detail-variant-gallery">${c.variants.map((v) => `<button class="detail-variant-item ${v.img === initialImg ? "active" : ""}" data-variant-img="${esc(v.img)}" title="${esc(v.rarity)} · ${esc(v.obtain)}"><img src="${v.img}" alt="${esc(v.rarity)}" loading="lazy"><span>${v.rarity}</span></button>`).join("")}</div>`
+    : `<label class="small">ภาพเวอร์ชัน <select id="variant">${c.variants.map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label>`;
+  // Action row: in catalog hide deck controls
+  const actionRow = inCatalog
+    ? `<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a>`
+    : `${c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a>`;
+  panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong><button data-do="closeCardInfo" aria-label="ปิดรายละเอียดการ์ด">✕</button></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${esc(initialImg)}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${c.tags.map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details>${variantSection}<div class="row" style="margin-top:20px">${actionRow}</div></div></div></div>`;
   panel.querySelector(".card-info-content").scrollTop = 0;
+  // Wire up gallery clicks to swap main image
+  panel.querySelectorAll(".detail-variant-item").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      panel.querySelector("#detailArt").src = btn.dataset.variantImg;
+      panel.querySelectorAll(".detail-variant-item").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
 }
+
 function moveDialog(zone, index) {
   const code = room.players[room.seat][zone][index];
   detail(
@@ -709,7 +732,7 @@ document.addEventListener("click", async (e) => {
       return;
     }
     if (t.dataset.detail) {
-      detail(t.dataset.detail);
+      detail(t.dataset.detail, "", t.dataset.variantImg || null);
       return;
     }
     if (t.dataset.zone) {

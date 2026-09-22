@@ -281,6 +281,103 @@ button:focus-visible {
     font-size: 19px
 }
 
+/* Variant thumbnails in catalog tile */
+.tile-variants {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+    flex-wrap: wrap
+}
+
+.tile-variant-thumb {
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 5px;
+    background: transparent;
+    cursor: pointer;
+    width: calc(33.33% - 3px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: border-color .15s
+}
+
+.tile-variant-thumb img {
+    width: 100%;
+    aspect-ratio: .716;
+    object-fit: contain;
+    border-radius: 4px;
+    background: #172331
+}
+
+.tile-variant-thumb:hover {
+    border-color: var(--gold);
+    background: transparent
+}
+
+.tile-variant-thumb.active {
+    border-color: var(--gold)
+}
+
+.tile-variant-rarity {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: .5px;
+    text-align: center;
+    line-height: 1.3
+}
+
+/* Variant gallery in detail panel (catalog) */
+.detail-variant-gallery {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 10px
+}
+
+.detail-variant-item {
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    cursor: pointer;
+    width: 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    transition: border-color .15s
+}
+
+.detail-variant-item img {
+    width: 100%;
+    aspect-ratio: .716;
+    object-fit: contain;
+    border-radius: 4px;
+    background: #172331
+}
+
+.detail-variant-item span {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.3
+}
+
+.detail-variant-item:hover {
+    border-color: var(--gold);
+    background: transparent
+}
+
+.detail-variant-item.active {
+    border-color: var(--gold)
+}
+
+.detail-variant-item.active span {
+    color: var(--gold)
+}
+
 .notice {
     border: 1px solid #5e513a;
     background: #241f17;
@@ -2585,6 +2682,123 @@ body.has-battle-log.log-collapsed {
 
 .locked-card {
     position: relative
+}
+
+.rarity-badge {
+    font-size: 11px;
+    letter-spacing: .4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #182330;
+    color: var(--gold);
+    border: 1px solid #3d4f65;
+    white-space: nowrap
+}
+
+.card-variant-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px
+}
+
+.variant-pill-btn {
+    padding: 1px 7px;
+    font-size: 11px;
+    border-radius: 4px;
+    background: #141f2c;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    line-height: 1.4;
+    cursor: pointer;
+    transition: all .15s ease
+}
+
+.variant-pill-btn:hover {
+    border-color: var(--gold);
+    color: var(--text);
+    background: #1c2b3d
+}
+
+.variant-pill-btn.active {
+    background: #28241b;
+    color: var(--gold);
+    border-color: var(--gold);
+    font-weight: 600
+}
+
+.variant-gallery-wrap {
+    margin: 16px 0;
+    padding: 12px;
+    background: #0e1622;
+    border: 1px solid var(--line);
+    border-radius: 9px
+}
+
+.variant-gallery-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 13px
+}
+
+.variant-gallery-title strong {
+    color: var(--gold)
+}
+
+.variant-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+    gap: 8px
+}
+
+.variant-gallery-item {
+    padding: 3px;
+    border-radius: 6px;
+    background: #152230;
+    border: 1.5px solid transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: all .15s ease;
+    text-align: center
+}
+
+.variant-gallery-item:hover {
+    border-color: rgba(219, 197, 152, 0.5);
+    background: #1d2d3e;
+    transform: translateY(-2px)
+}
+
+.variant-gallery-item.active {
+    border-color: var(--gold);
+    background: #24241b;
+    box-shadow: 0 0 10px rgba(219, 197, 152, 0.3)
+}
+
+.variant-gallery-item img {
+    width: 100%;
+    aspect-ratio: .716;
+    object-fit: contain;
+    border-radius: 4px;
+    display: block;
+    background: #090e15
+}
+
+.variant-info-tag {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 10px;
+    margin-top: 4px;
+    color: var(--gold);
+    line-height: 1.2
+}
+
+.variant-set {
+    color: var(--muted)
 }
 
 .deck-section.preset-section {
