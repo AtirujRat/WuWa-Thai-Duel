@@ -2776,3 +2776,22 @@ body.deck-builder-view{height:100dvh;overflow:hidden}
 .level-card>span{position:absolute;bottom:3px;left:3px;background:#080d14e8;padding:1px 4px;border-radius:3px;font-size:11px;color:#fff;line-height:1.3}
 .character-level-section .empty{grid-row:1/4}
 @media(max-width:1100px){.deck-builder-view main{padding:12px}.deck-builder-view .deck-builder-main{gap:12px}.deck-builder-main>.deck-section{padding:12px}.character-level-row{grid-template-columns:62px minmax(0,1fr);gap:6px}.character-level-row>strong{font-size:10px}.character-level-cards{gap:5px}.character-level-cards .level-card{max-width:calc((100% - 20px)/5)}.level-card>span{font-size:8px;padding:0 2px;left:1px;bottom:1px}.deck-builder-main #actionGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.deck-builder-view .deck-summary-bar{gap:8px;padding:10px}}
+
+/* More space for action selection and larger deck-building text. */
+.deck-builder-view .deck-builder-main{grid-template-columns:minmax(0,2fr) minmax(0,3fr)}
+.deck-builder-main .deck-section-header h2{font-size:18px;line-height:1.5}
+.deck-builder-main .deck-section-header p{font-size:14px;line-height:1.6}
+.deck-builder-main .action-card-tile h3{font-size:16px!important;line-height:1.5;overflow-wrap:anywhere}
+.deck-builder-main .action-card-tile .card-meta,.deck-builder-main .action-compat-badge,.deck-builder-main .badge{font-size:13px;line-height:1.5}
+.deck-builder-main .code{font-size:11px}
+.deck-builder-main .toolbar .search,.deck-builder-main .toolbar select{font-size:15px;padding:10px}
+.deck-builder-main .action-card-tile button.add{font-size:17px;min-width:32px;min-height:32px;padding:4px 8px}
+.deck-builder-main .char-name{font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.deck-builder-main .char-sub,.deck-builder-main .char-btn-toggle{font-size:12px;line-height:1.5}
+.deck-builder-main .char-btn-toggle{padding:6px}
+.deck-builder-main .char-picker-grid{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.deck-builder-main #actionGrid{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+.character-level-row>strong{font-size:14px}
+.deck-builder-view .subnav button,.deck-builder-view .deck-summary-bar button,.deck-builder-view .deck-summary-bar .badge,.deck-builder-view .deck-summary-bar .small{font-size:14px}
+.deck-builder-view .deck-summary-bar #deckName{font-size:16px}
+@media(max-width:1100px){.deck-builder-main #actionGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.deck-builder-main .char-picker-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.character-level-row{grid-template-columns:70px minmax(0,1fr)}.character-level-row>strong{font-size:12px}.deck-builder-view .subnav button{font-size:12px}}
