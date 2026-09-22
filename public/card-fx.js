@@ -52,7 +52,7 @@ export function sound(kind){
    if(!buffer||!enabled||document.hidden||ctx.state!=='running')return;
    const source=ctx.createBufferSource(),gain=ctx.createGain();
    source.buffer=buffer;
-   gain.gain.value=kind==='phase'?.55:kind==='click'||kind==='lift'?.75:.7;
+   gain.gain.value=kind==='phase'?.55:(kind==='click'||kind==='lift'||kind==='card')?.75:.7;
    source.connect(gain);
    gain.connect(ctx.destination);
    source.start();
