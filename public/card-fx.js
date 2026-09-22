@@ -47,7 +47,7 @@ export function sound(kind){
  }
  if(ctx.state!=='running')return;
  if(['draw','lift','place','phase','card','handle','click'].includes(kind)){
-  const promise=kind==='phase'?loadPhaseSound():kind==='draw'?loadDrawSound():(kind==='click'||kind==='lift')?loadClickSound():loadHandleSound();
+  const promise=kind==='phase'?loadPhaseSound():kind==='draw'?loadDrawSound():(kind==='click'||kind==='lift'||kind==='card')?loadClickSound():loadHandleSound();
   promise?.then(buffer=>{
    if(!buffer||!enabled||document.hidden||ctx.state!=='running')return;
    const source=ctx.createBufferSource(),gain=ctx.createGain();
