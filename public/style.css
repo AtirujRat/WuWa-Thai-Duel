@@ -299,6 +299,137 @@ button:focus-visible {
     border-radius: 12px
 }
 
+.deck-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px
+}
+
+.deck-card-row {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    background: #121c28;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease
+}
+
+.deck-card-row:hover {
+    border-color: #586e87;
+    background: #16212c
+}
+
+.deck-card-row.selected {
+    border-color: var(--gold);
+    background: #1d2733;
+    box-shadow: 0 0 0 1px rgba(219, 197, 152, .35) inset, 0 0 16px rgba(219, 197, 152, .15)
+}
+
+.deck-card-row.selected:hover {
+    border-color: var(--gold)
+}
+
+.deck-selected-tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background: #241f17;
+    color: var(--gold);
+    border: 1px solid #594d36;
+    vertical-align: middle;
+    margin-left: 4px
+}
+
+.deck-card-thumbs {
+    display: flex;
+    flex: none
+}
+
+.deck-card-thumbs img {
+    width: 46px;
+    height: 46px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #121c28;
+    box-shadow: 0 0 0 1px var(--line);
+    margin-left: -14px;
+    background: #0c141d
+}
+
+.deck-card-thumbs img:first-child {
+    margin-left: 0
+}
+
+.deck-card-info {
+    flex: 1;
+    min-width: 0
+}
+
+.deck-card-info h3 {
+    font-size: 16px;
+    margin: 0 0 3px;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.deck-card-info p {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis
+}
+
+.deck-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none
+}
+
+.deck-card-actions .pill {
+    border: 1px solid #2f6b3f;
+    background: #16281c;
+    color: #9ce7b0;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap
+}
+
+.deck-card-actions .danger {
+    border-color: #7a3a37;
+    background: #241715
+}
+
+.deck-card-actions .preset-pill {
+    border: 1px solid #6b4fa8;
+    background: #241c33;
+    color: #c8aeff;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap
+}
+
+@media(max-width:720px) {
+    .deck-card-row {
+        flex-wrap: wrap
+    }
+
+    .deck-card-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap
+    }
+}
+
 .panel {
     background: var(--panel);
     border: 1px solid var(--line);

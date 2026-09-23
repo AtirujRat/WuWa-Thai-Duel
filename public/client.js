@@ -430,6 +430,42 @@ function results() {
       .join("") || '<div class="empty">ไม่พบการ์ดที่ตรงกับการค้นหา</div>'
   }</div><div class="pagination">${btn("prev", "← ก่อนหน้า", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${btn("next", "ถัดไป →", page === pages ? "disabled" : "")}</div>`;
 }
+function deckCardRow(d) {
+  const v = validateDeck(d.entries, cards);
+  const seen = new Set(),
+    uniqueChars = [];
+  for (const c of Object.keys(d.entries)
+    .map((code) => card(code))
+    .filter((c) => c && c.type === "character"))
+    if (!seen.has(c.character)) {
+      seen.add(c.character);
+      uniqueChars.push(c);
+    }
+  const isActive = d.isPreset
+    ? !deck.id && deck.name === d.name
+    : !!deck.id && deck.id === d.id;
+  const badge = d.isPreset
+    ? '<span class="small preset-pill">เด็คตั้งต้น</span>'
+    : `<span class="small ${v.valid ? "pill" : "danger"}">${v.valid ? "พร้อมเล่น" : "ยังไม่ครบ"}</span>`;
+  const actions = d.isPreset
+    ? btn("dupPreset", "ทำสำเนา", `data-preset="${d.presetKey}"`)
+    : `${btn("editDeck", "แก้ไข", `data-id="${d.id}"`)}${btn("dupDeck", "ทำสำเนา", `data-id="${d.id}"`)}${btn("delDeck", "ลบ", `data-id="${d.id}"`, "danger")}`;
+  return `<div class="deck-card-row ${isActive ? "selected" : ""}" data-do="${d.isPreset ? "selectPreset" : "selectSaved"}" ${d.isPreset ? `data-preset="${d.presetKey}"` : `data-id="${d.id}"`}><div class="deck-card-thumbs">${uniqueChars
+    .slice(0, 3)
+    .map((c) => `<img src="${c.img}" alt="${esc(c.name)}">`)
+    .join("")}</div><div class="deck-card-info"><h3>${esc(d.name)}${isActive ? ' <span class="deck-selected-tag">✓ กำลังใช้</span>' : ""}</h3><p class="muted small">${esc(uniqueChars.map((c) => c.name).join(" · "))} — ${v.actions} ใบ</p></div><div class="deck-card-actions">${badge}${actions}</div></div>`;
+}
+function savedDecksModalHTML() {
+  return `${btn("close", "✕", "", "close")}<h2>เด็คที่บันทึกไว้ <span class="badge">${saved.length}</span></h2><div class="deck-card-list">${saved.map(deckCardRow).join("") || '<div class="empty">ยังไม่มีเด็คที่บันทึกไว้</div>'}</div>`;
+}
+function deckPickerInline() {
+  const presets = ["SD01", "SD02"].map((set) => ({
+    ...presetDeck(set, cards),
+    isPreset: true,
+    presetKey: set,
+  }));
+  return `<div class="deck-card-list">${[...presets, ...saved].map(deckCardRow).join("")}</div>`;
+}
 function deckSummaryBar() {
   const v = validateDeck(deck.entries, cards);
   const actionsInDeck = Object.entries(deck.entries)
@@ -546,7 +582,7 @@ function playLobby() {
   const modeToggle = `<div class="row play-mode-toggle" role="tablist" aria-label="โหมดการเล่น"><button type="button" class="mode-tab ${playMode === "bot" ? "active" : ""}" data-do="playMode" data-mode="bot" role="tab" aria-selected="${playMode === "bot"}">🤖 เล่นกับบอท</button><button type="button" class="mode-tab ${playMode === "friend" ? "active" : ""}" data-do="playMode" data-mode="friend" role="tab" aria-selected="${playMode === "friend"}">👥 เล่นกับผู้เล่น</button></div>`;
   const botPanel = `<div class="bot-lobby"><p class="small muted">กฎพื้นฐานตามคู่มือ 12 ก.ย. 2026 · เด็คเริ่มต้นประมวลผลเอฟเฟกต์อัตโนมัติ · ชุดเสริมบางใบต้องจัดการเอฟเฟกต์ผ่านแผงยืนยัน</p><div class="row"><label>ระดับบอท <select id="botDifficulty"><option value="easy">ง่าย · สุ่มการ์ด</option><option value="normal" selected>ปกติ · เลือกตามพลัง</option></select></label><label>เด็คบอท <select id="botDeck"><option>SD02</option><option>SD01</option></select></label></div><div style="margin-top:16px">${btn("startBot", "เริ่มเล่นกับบอท", valid.valid ? "" : "disabled", "primary")}</div></div>`;
   const friendPanel = `<div class="friend-lobby"><p class="small muted">สร้างห้องแล้วส่งรหัสให้เพื่อน หรือใส่รหัสห้องที่ได้รับมาเพื่อเข้าร่วม</p>${btn("create", "สร้างห้อง", valid.valid ? "" : "disabled")}<hr style="width:100%;border:0;border-top:1px solid var(--line)"><label>รหัสห้องของเพื่อน<input id="roomCode" maxlength="8" value="${esc(new URLSearchParams(location.search).get("room") || "")}" placeholder="รหัส 8 ตัว (แยกตัวพิมพ์เล็ก/ใหญ่)" style="display:block;width:100%"></label>${btn("join", "เข้าห้องเพื่อน", valid.valid ? "" : "disabled")}</div>`;
-  return `<div class="notice">ห้องใหม่ใช้กฎตามเฟส: จั่วอัตโนมัติ ชาร์จ อัปเลเวล เปิดแอ็กชันพร้อมกัน และคอมโบ · เอฟเฟกต์ชุดเสริมบางใบใช้แผงจัดการด้วยตนเอง</div><div class="split"><div class="panel"><h2>เริ่มดวล 1 ต่อ 1</h2>${modeToggle}<div class="stack"><label>ชื่อของคุณ (ไม่บังคับ)<input id="playerName" maxlength="32" placeholder="เว้นว่างได้ · ระบบจะตั้งชื่อ Guest ให้อัตโนมัติ" style="display:block;width:100%"></label><p>เด็คที่เลือก: <strong>${esc(deck.name)}</strong><br><span class="small ${valid.valid ? "pill" : "danger"}">${valid.valid ? "พร้อมเล่น · " + valid.actions + " แอ็กชัน" : esc(valid.errors.join(" · "))}</span></p><div class="row">${btn("preset1", "ใช้เด็คฝึก SD01")}${btn("preset2", "ใช้เด็คฝึก SD02")}</div>${playMode === "bot" ? botPanel : friendPanel}</div></div><aside class="panel"><h3>ลองสองคนได้อย่างไร</h3><p class="muted">เครื่องเดียว: เปิดเว็บในอีกเบราว์เซอร์ แล้วใส่รหัสห้อง</p><p class="muted">คนละเครื่อง: อยู่ Wi-Fi เดียวกัน เปิดที่อยู่ LAN ที่ปรากฏตอนเริ่มเดโม แล้วใส่รหัสห้องเดียวกัน</p><p class="small muted">การเล่นผ่านอินเทอร์เน็ตคนละเครือข่ายจะเพิ่มเมื่อโฮสต์จริง เก็บหน้าต่างเซิร์ฟเวอร์ไว้ระหว่างเล่น</p>${room ? btn("resume", "กลับเข้าห้องเดิม") : ""}</aside></div>`;
+  return `<div class="notice">ห้องใหม่ใช้กฎตามเฟส: จั่วอัตโนมัติ ชาร์จ อัปเลเวล เปิดแอ็กชันพร้อมกัน และคอมโบ · เอฟเฟกต์ชุดเสริมบางใบใช้แผงจัดการด้วยตนเอง</div><div class="split"><div class="panel"><h2>เริ่มดวล 1 ต่อ 1</h2>${modeToggle}<div class="stack"><label>ชื่อของคุณ (ไม่บังคับ)<input id="playerName" maxlength="32" placeholder="เว้นว่างได้ · ระบบจะตั้งชื่อ Guest ให้อัตโนมัติ" style="display:block;width:100%"></label><p>เด็คที่เลือก: <strong>${esc(deck.name)}</strong><br><span class="small ${valid.valid ? "pill" : "danger"}">${valid.valid ? "พร้อมเล่น · " + valid.actions + " แอ็กชัน" : esc(valid.errors.join(" · "))}</span></p>${deckPickerInline()}${playMode === "bot" ? botPanel : friendPanel}</div></div><aside class="panel"><h3>ลองสองคนได้อย่างไร</h3><p class="muted">เครื่องเดียว: เปิดเว็บในอีกเบราว์เซอร์ แล้วใส่รหัสห้อง</p><p class="muted">คนละเครื่อง: อยู่ Wi-Fi เดียวกัน เปิดที่อยู่ LAN ที่ปรากฏตอนเริ่มเดโม แล้วใส่รหัสห้องเดียวกัน</p><p class="small muted">การเล่นผ่านอินเทอร์เน็ตคนละเครือข่ายจะเพิ่มเมื่อโฮสต์จริง เก็บหน้าต่างเซิร์ฟเวอร์ไว้ระหว่างเล่น</p>${room ? btn("resume", "กลับเข้าห้องเดิม") : ""}</aside></div>`;
 }
 const zoneNames = {
   hand: "มือ",
@@ -760,7 +796,7 @@ document.addEventListener("click", async (e) => {
       return;
     }
     if (doIt === "savedModal") {
-      dialog.innerHTML = `${btn("close", "✕", "", "close")}<h2>เด็คที่บันทึกไว้ <span class="badge">${saved.length}</span></h2><div class="stack" style="margin-top:16px">${saved.map((d) => `<div class="panel"><h3>${esc(d.name)}</h3><p class="muted small">${validateDeck(d.entries, cards).actions} แอ็กชัน · ${validateDeck(d.entries, cards).characters} ตัวละคร</p><div class="row">${btn("load", "เปิดเด็คนี้", `data-id="${d.id}"`)}${btn("use", "ใช้เล่น", `data-id="${d.id}"`, "primary")}</div></div>`).join("") || '<div class="empty">ยังไม่มีเด็คที่บันทึกไว้</div>'}</div>`;
+      dialog.innerHTML = savedDecksModalHTML();
       dialog.showModal();
       return;
     }
@@ -842,15 +878,78 @@ document.addEventListener("click", async (e) => {
       toast("บันทึกเด็คแล้ว");
       return;
     }
-    if (doIt === "load" || doIt === "use") {
-      deck = structuredClone(saved.find((d) => d.id === t.dataset.id));
-      if (dialog.open) dialog.close();
-      if (doIt === "use") {
-        tab = "play";
-        inLobby = true;
-      }
+    if (doIt === "selectPreset") {
+      deck = presetDeck(t.dataset.preset, cards);
       render();
-      toast("เปิดเด็คแล้ว");
+      toast("โหลดเด็คฝึก " + t.dataset.preset + " แล้ว");
+      return;
+    }
+    if (doIt === "dupPreset") {
+      const set = t.dataset.preset,
+        d = presetDeck(set, cards);
+      t.disabled = true;
+      try {
+        await api("/api/decks", { name: d.name, entries: d.entries });
+        saved = await api("/api/decks");
+        render();
+        toast("บันทึกเด็คฝึก " + set + " เป็นเด็คของฉันแล้ว");
+      } finally {
+        t.disabled = false;
+      }
+      return;
+    }
+    if (doIt === "selectSaved") {
+      const d = saved.find((x) => x.id === t.dataset.id);
+      if (!d) return;
+      deck = structuredClone(d);
+      if (dialog.open) dialog.close();
+      if (tab === "play") inLobby = true;
+      render();
+      toast("เปิดเด็ค " + d.name + " แล้ว");
+      return;
+    }
+    if (doIt === "editDeck") {
+      const d = saved.find((x) => x.id === t.dataset.id);
+      if (!d) return;
+      deck = structuredClone(d);
+      tab = "decks";
+      if (dialog.open) dialog.close();
+      render();
+      toast("เปิดเด็ค " + d.name + " เพื่อแก้ไข");
+      return;
+    }
+    if (doIt === "dupDeck") {
+      const d = saved.find((x) => x.id === t.dataset.id);
+      if (!d) return;
+      t.disabled = true;
+      try {
+        await api("/api/decks", {
+          name: d.name + " (สำเนา)",
+          entries: structuredClone(d.entries),
+        });
+        saved = await api("/api/decks");
+        if (dialog.open) dialog.innerHTML = savedDecksModalHTML();
+        toast("ทำสำเนาเด็คแล้ว");
+      } finally {
+        t.disabled = false;
+      }
+      return;
+    }
+    if (doIt === "delDeck") {
+      const d = saved.find((x) => x.id === t.dataset.id);
+      if (!d) return;
+      if (!confirm('ลบเด็ค "' + d.name + '" ? การลบไม่สามารถย้อนกลับได้')) return;
+      t.disabled = true;
+      try {
+        await fetch("/api/decks/" + d.id, { method: "DELETE" });
+        saved = await api("/api/decks");
+        if (dialog.open) dialog.innerHTML = savedDecksModalHTML();
+        toast("ลบเด็คแล้ว");
+      } catch {
+        toast("ลบเด็คไม่สำเร็จ");
+      } finally {
+        t.disabled = false;
+      }
       return;
     }
     if (doIt === "export") {
