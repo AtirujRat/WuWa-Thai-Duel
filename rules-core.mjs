@@ -24,7 +24,31 @@ export function rulesView(r,seat){
   turnOwner:r.active,canAct:['draw','action','battle'].includes(r.phase)&&r.active===seat||r.phase==='defense'&&r.active!==seat||r.phase==='combo'&&r.comboSeat===seat,
  };
 }
-export function rulesAct(room,seat,cmd,cards){const g=new Game(room,cards);g.command(seat,cmd);g.advance();room.version++;return room}
+export function rulesAct(room,seat,cmd,cards,options={}){const g=new Game(room,cards);g.command(seat,cmd);g.advance(options);room.version++;return room}
+export function isBotPending(r){
+ if(!r||r.status!=='playing'||!r.players||r.players.length<2)return false;
+ const botSeat=r.players[0]?.isBot?0:r.players[1]?.isBot?1:-1;
+ if(botSeat<0)return false;
+ if(r.choice&&r.choice.seat===botSeat&&r.choice.type!=='manual')return true;
+ if(r.phase==='draw'&&r.active===botSeat)return true;
+ if(r.phase==='action'&&r.active===botSeat)return true;
+ if(r.phase==='battle'&&r.active===botSeat)return true;
+ if(r.phase==='defense'&&(1-r.active)===botSeat)return true;
+ if(r.phase==='combo'&&r.comboSeat===botSeat)return true;
+ if(r.phase==='result'&&r.active===botSeat)return true;
+ return false;
+}
+export function getBotStepDelay(r){
+ if(!r)return 250;
+ if(r.phase==='draw')return 180;
+ if(r.phase==='action')return 220;
+ if(r.phase==='battle')return 260;
+ if(r.phase==='defense')return 280;
+ if(r.phase==='combo')return 200;
+ if(r.phase==='result')return 300;
+ return 250;
+}
+export function stepBot(room,cards){const g=new Game(room,cards);const ok=g.stepOne();if(ok)room.version++;return ok}
 class Game{
  constructor(r,cards){this.r=r;this.cards=new Map(cards.map(c=>[c.code,c]));initRules(r)}
  p(s){return this.r.players[s]} c(code){return this.cards.get(code)}
@@ -87,11 +111,33 @@ class Game{
  combo(s,index,payment){const r=this.r,p=this.p(s),code=p.hand[index];assert(Number.isInteger(index)&&code&&this.legal(s,code,true),'ต้องเป็นสีแดงที่จ่ายค่าร่ายและใช้ได้');assert(r.comboLeft!==0&&p.flags.noComboTurn!==r.turn,'ไม่สามารถคอมโบต่อได้');this.pay(s,this.payment(s,code,payment));p.hand.splice(index,1);if(r.comboLeft>0)r.comboLeft--;p.table.push({id:uid(),code,zone:'action',faceDown:false,x:Math.min(.9,p.table.filter(c=>c.zone==='action').length*.15),y:.5});p.flags.bonusDamage=0;r.phase='comboEffects';this.enqueue({type:'effect',event:'combo',seat:s,source:code,ctx:{}},{type:'comboDamage',seat:s,source:code});this.log(p.name+' · คอมโบ '+this.c(code).name)}
  baseDamage(s,code,combo=false){const p=this.p(s),c=this.c(code);let n=Number(c.damage)||0;for(const source of this.all(s)){if(source==='SD01-005'&&c.character==='ฉือเสีย'&&c.info.includes('【リーダースキル】'))n+=3;if(source==='SD02-005'&&this.leader(s,source)&&combo)n++;if(source==='BP01-001'&&this.leader(s,source)&&c.character==='คาเมลเลีย'&&c.color==='แดง')n++;if(source==='BP01-011'&&c.character==='อังกอร์'&&c.color==='แดง')n++;}return Math.max(0,n+(p.flags.bonusDamage||0))}
  damage(s,n){const p=this.p(s);n=Math.max(0,n);for(const code of this.all(s)){if(this.leader(s,code)&&code==='BP01-001')n++;if(this.leader(s,code)&&code==='BP01-002'&&!p.flags.damageTaken)n=Math.max(0,n-1)}if(n>0){p.hp=Math.max(0,p.hp-n);p.flags.damageTaken=true;this.log(p.name+' · รับความเสียหาย '+n)}this.check()}
- advance(){const r=this.r;for(let guard=0;guard<300&&r.status!=='finished';guard++){
+ drainQueue(){const r=this.r;while(r.queue.length&&!r.choice&&r.status==='playing'){this.process(r.queue.shift())}}
+ stepOne(){
+  const r=this.r;if(r.status!=='playing')return false;
+  this.drainQueue();
+  if(r.choice&&this.p(r.choice.seat).isBot&&r.choice.type!=='manual'){this.botAnswer();this.drainQueue();return true}
+  if(r.choice)return false;
+  if(r.phase==='draw'&&this.p(r.active).isBot){this.drawTurn();this.drainQueue();return true}
+  if(r.phase==='action'&&this.p(r.active).isBot){this.botAction(r.active);this.drainQueue();return true}
+  if(r.phase==='battle'&&this.p(r.active).isBot){this.botBattle(r.active);this.drainQueue();return true}
+  if(r.phase==='defense'&&this.p(1-r.active).isBot){this.botDefend(1-r.active);this.drainQueue();return true}
+  if(r.phase==='combo'&&this.p(r.comboSeat).isBot){const s=r.comboSeat,i=this.p(s).hand.findIndex(code=>this.legal(s,code,true));if(i>=0&&r.comboLeft!==0&&this.p(s).flags.noComboTurn!==r.turn)this.combo(s,i);else this.end();this.drainQueue();return true}
+  if(r.phase==='result'&&this.p(r.active).isBot){this.end();this.drainQueue();return true}
+  return false;
+ }
+ advance(options={}){const r=this.r;const paced=!!options.pacedBot;for(let guard=0;guard<300&&r.status!=='finished';guard++){
   if(r.choice){if(this.p(r.choice.seat).isBot&&r.choice.type!=='manual'){this.botAnswer();continue}return}
   if(r.queue.length){this.process(r.queue.shift());continue}
-  if(r.phase==='setup'&&this.p(r.setupSeat).isBot){this.p(r.setupSeat).ready=true;if(r.players.every(p=>p.ready))this.begin();else r.setupSeat=1-r.setupSeat;continue}
+  if(r.phase==='setup'&&this.p(r.setupSeat).isBot){this.p(r.setupSeat).ready=true;if(r.players.every(p=>p.ready))this.begin();else r.setupSeat=1-r.setupSeat;if(paced&&r.status==='playing'&&this.p(r.active).isBot)return;continue}
   if(r.status!=='playing')return;
+  if(paced){
+   if(r.phase==='draw'&&this.p(r.active).isBot)return;
+   if(r.phase==='action'&&this.p(r.active).isBot)return;
+   if(r.phase==='battle'&&this.p(r.active).isBot)return;
+   if(r.phase==='defense'&&this.p(1-r.active).isBot)return;
+   if(r.phase==='combo'&&this.p(r.comboSeat).isBot)return;
+   if(r.phase==='result'&&this.p(r.active).isBot)return;
+  }
   if(r.phase==='draw'&&this.p(r.active).isBot){this.drawTurn();continue}
   if(r.phase==='action'&&this.p(r.active).isBot){this.botAction(r.active);continue}
   if(r.phase==='battle'&&this.p(r.active).isBot){this.botBattle(r.active);continue}
@@ -142,8 +188,8 @@ class Game{
  }
  botAnswer(){const q=this.r.choice;if(q.type==='discard'){const p=this.p(q.seat);const ids=p.hand.map((code,i)=>({i,c:this.c(code)})).sort((a,b)=>Number(b.c.fee)-Number(a.c.fee)).slice(0,q.count).map(x=>x.i);this.answer({indices:ids});return}let value=q.type==='drawUpTo'?q.options.at(-1).value:q.options[0].value;if(q.type==='switch'&&q.expected)value=q.options.find(x=>this.c(x.value).character===q.expected)?.value||value;this.answer({value})}
  botAction(s){const p=this.p(s);if(!p.used.charge&&p.hand.length){const i=p.hand.map((code,i)=>({code,i,fee:this.cost(s,code)})).sort((a,b)=>b.fee-a.fee)[0].i;const code=p.hand.splice(i,1)[0];p.table.push({id:uid(),code,zone:'concerto',x:.5,y:Math.min(.85,this.energy(s).length*.14),faceDown:false});p.used.charge=true;this.log(p.name+' · ชาร์จ '+this.c(code).name)}
-  if(!p.used.level){const target=p.reserve.find(code=>{const c=this.c(code),old=p.field.find(x=>this.c(x).character===c.character);return code!=='BP01-011'&&old&&Number(c.level)===Number(this.c(old).level)+1&&p.hand.length>=Number(c.level)+2&&code.startsWith('SD')});if(target){this.upgrade(s,target,false,Array.from({length:Number(this.c(target).level)},(_,i)=>p.hand.length-1-i));p.used.level=true;return}}
-  this.enterBattle();
+  if(!p.used.level){const target=p.reserve.find(code=>{const c=this.c(code),old=p.field.find(x=>this.c(x).character===c.character);return code!=='BP01-011'&&old&&Number(c.level)===Number(this.c(old).level)+1&&p.hand.length>=Number(c.level)+2&&code.startsWith('SD')});if(target){this.upgrade(s,target,false,Array.from({length:Number(this.c(target).level)},(_,i)=>p.hand.length-1-i));p.used.level=true;/* upgrade effects queued — drain before battle */this.drainQueue()}}
+  if(!this.r.choice)this.enterBattle();
  }
  drawTurn(){const r=this.r,n=r.turn===1?1:2;this.takeTop(r.active,n);this.log(this.p(r.active).name+' · จั่ว '+n+' ใบใน Draw');if(r.status==='playing')r.phase='action'}
  enterBattle(){this.r.phase='battle';this.log(this.p(this.r.active).name+' · เข้าสู่ Battle');this.fieldEvents('battleStart')}

@@ -42,7 +42,21 @@ function playmat(p, mine, live) {
     p.leader,
     ...p.field.filter((code) => code !== p.leader).slice(1),
   ].filter(Boolean);
-  return `<div class="playmat ${mine ? "own-mat" : "opponent-mat"}">${zone("concerto")}${zone("action")}<div class="mat-characters">${field.map((code) => `<div class="character-slot ${code === p.leader ? "leader-slot" : ""}"><button data-detail="${code}" class="art-button">${img(card(code))}</button><span>${code === p.leader ? "ผู้นำ" : "แบ็ค"} · Lv.${card(code).level}</span>${mine && (room.rulesVersion ? room.status === "waiting" || (room.phase === "action" && room.active === room.seat && !room.choice && !p.used?.switch) : live && room.mode !== "bot") && code !== p.leader ? btn("leader", "เป็นผู้นำ", `data-code="${code}"`) : ""}</div>`).join("")}</div><div class="character-deck"><span class="deck-back pale" role="img" aria-label="หลังการ์ดตัวละคร"></span><span>เด็คตัวละคร · ${p.reserveCount}</span>${mine ? (room.rulesVersion ? '<button data-rule="reserve">ดู / อัปเลเวล</button>' : btn("showReserve", "ดูการ์ด")) : ""}</div><div class="mat-trash">${zoneUI(p, "trash", mine, live && !room.rulesVersion && room.mode !== "bot")}</div><div class="mat-deck"><span class="deck-back" role="img" aria-label="หลังการ์ดแอ็กชัน"></span><span>สำรับแอ็กชัน · ${p.deckCount}</span>${mine && !room.rulesVersion ? `<div class="deck-buttons">${btn("draw", "จั่ว", live && p.deckCount ? "" : "disabled", "primary")}${btn("shuffle", "สับเด็ค", live && p.deckCount > 1 ? "" : "disabled")}</div>` : ""}</div></div>`;
+  const seatIdx = mine ? room.seat : (1 - room.seat);
+  return `<div class="playmat ${mine ? "own-mat" : "opponent-mat"}">${zone("concerto")}${zone("action")}<div class="mat-characters">${field.map((code) => {
+    const isLeader = code === p.leader;
+    const stack = (p.stacks && p.stacks[code]) ? p.stacks[code] : [code];
+    const hasStack = stack.length > 1;
+    const c = card(code);
+    return `<div class="character-slot ${isLeader ? "leader-slot" : ""} ${hasStack ? "has-stack" : ""}">
+      <button data-char-slot="${code}" data-seat="${seatIdx}" class="art-button char-stack-btn" aria-label="${isLeader ? "ผู้นำ" : "แบ็ค"} ${esc(c.name)} Lv.${c.level} (กดดูการ์ดสืบทอด)">
+        ${img(c)}
+        ${hasStack ? `<span class="stack-indicator" title="สืบทอดความสามารถ ${stack.length} การ์ด">🔗 ซ้อน ${stack.length} ใบ</span>` : ""}
+      </button>
+      <span>${isLeader ? "👑 ผู้นำ" : "แบ็ค"} · Lv.${c.level}</span>
+      ${mine && (room.rulesVersion ? room.status === "waiting" || (room.phase === "action" && room.active === room.seat && !room.choice && !p.used?.switch) : live && room.mode !== "bot") && code !== p.leader ? btn("leader", "เป็นผู้นำ", `data-code="${code}"`) : ""}
+    </div>`;
+  }).join("")}</div><div class="character-deck"><span class="deck-back pale" role="img" aria-label="หลังการ์ดตัวละคร"></span><span>เด็คตัวละคร · ${p.reserveCount}</span>${mine ? (room.rulesVersion ? '<button data-rule="reserve">ดู / อัปเลเวล</button>' : btn("showReserve", "ดูการ์ด")) : ""}</div><div class="mat-trash">${zoneUI(p, "trash", mine, live && !room.rulesVersion && room.mode !== "bot")}</div><div class="mat-deck"><span class="deck-back" role="img" aria-label="หลังการ์ดแอ็กชัน"></span><span>สำรับแอ็กชัน · ${p.deckCount}</span>${mine && !room.rulesVersion ? `<div class="deck-buttons">${btn("draw", "จั่ว", live && p.deckCount ? "" : "disabled", "primary")}${btn("shuffle", "สับเด็ค", live && p.deckCount > 1 ? "" : "disabled")}</div>` : ""}</div></div>`;
 }
 document.addEventListener("change", (e) => {
   if (e.target.name === "placement") placeFaceDown = e.target.value === "down";
@@ -423,12 +437,11 @@ function results() {
   const arr = filtered();
   const pages = Math.max(1, Math.ceil(arr.length / 24));
   page = Math.min(page, pages);
-  return `<p class="muted small">${arr.length} รหัสการ์ด · กดภาพเพื่ออ่านคำแปล</p><div class="grid">${
-    arr
-      .slice((page - 1) * 24, page * 24)
-      .map((c) => tile(c))
-      .join("") || '<div class="empty">ไม่พบการ์ดที่ตรงกับการค้นหา</div>'
-  }</div><div class="pagination">${btn("prev", "← ก่อนหน้า", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${btn("next", "ถัดไป →", page === pages ? "disabled" : "")}</div>`;
+  return `<p class="muted small">${arr.length} รหัสการ์ด · กดภาพเพื่ออ่านคำแปล</p><div class="grid">${arr
+    .slice((page - 1) * 24, page * 24)
+    .map((c) => tile(c))
+    .join("") || '<div class="empty">ไม่พบการ์ดที่ตรงกับการค้นหา</div>'
+    }</div><div class="pagination">${btn("prev", "← ก่อนหน้า", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${btn("next", "ถัดไป →", page === pages ? "disabled" : "")}</div>`;
 }
 function deckCardRow(d) {
   const v = validateDeck(d.entries, cards);
@@ -455,28 +468,28 @@ function deckCardRow(d) {
     .map((c) => `<img src="${c.img}" alt="${esc(c.name)}">`)
     .join("")}</div><div class="deck-card-info"><h3>${esc(d.name)}${isActive ? ' <span class="deck-selected-tag">✓ กำลังใช้</span>' : ""}</h3><p class="muted small">${esc(uniqueChars.map((c) => c.name).join(" · "))} — ${v.actions} ใบ</p></div><div class="deck-card-actions">${badge}${actions}</div></div>`;
 }
-const DECK_STORE='wuwa-decks-v2';
-let deckStoreReady=false,deletedDeckIds=[];
-function readStoredJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
-function validLocalDeck(d){return d&&typeof d.name==='string'&&d.entries&&typeof d.entries==='object'&&!Array.isArray(d.entries)&&Object.entries(d.entries).every(([code,n])=>/^[A-Za-z0-9-]+$/.test(code)&&Number.isInteger(n)&&n>0&&n<=3)}
-function writeDeckStore(nextSaved=saved,nextDraft=deck,nextDeleted=deletedDeckIds){
- localStorage.setItem(DECK_STORE,JSON.stringify({saved:nextSaved,draft:nextDraft,deleted:nextDeleted}));
+const DECK_STORE = 'wuwa-decks-v2';
+let deckStoreReady = false, deletedDeckIds = [];
+function readStoredJSON(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback } }
+function validLocalDeck(d) { return d && typeof d.name === 'string' && d.entries && typeof d.entries === 'object' && !Array.isArray(d.entries) && Object.entries(d.entries).every(([code, n]) => /^[A-Za-z0-9-]+$/.test(code) && Number.isInteger(n) && n > 0 && n <= 3) }
+function writeDeckStore(nextSaved = saved, nextDraft = deck, nextDeleted = deletedDeckIds) {
+  localStorage.setItem(DECK_STORE, JSON.stringify({ saved: nextSaved, draft: nextDraft, deleted: nextDeleted }));
 }
-function saveDeckDraft(){if(deckStoreReady)try{writeDeckStore()}catch{}}
-function restoreDeckStore(remote){
- const stored=readStoredJSON(DECK_STORE,{});
- const previous=stored.saved??readStoredJSON('wuwa-saved-decks-v1',[]);
- deletedDeckIds=Array.isArray(stored.deleted)?stored.deleted.filter(x=>typeof x==='string'):[];
- saved=(Array.isArray(previous)?previous:[]).filter(d=>validLocalDeck(d)&&typeof d.id==='string'&&/^[A-Za-z0-9_-]+$/.test(d.id)&&!deletedDeckIds.includes(d.id));
- for(const d of remote||[])if(validLocalDeck(d)&&typeof d.id==='string'&&/^[A-Za-z0-9_-]+$/.test(d.id)&&!deletedDeckIds.includes(d.id)&&!saved.some(x=>x.id===d.id))saved.push(d);
- const draft=stored.draft??readStoredJSON('wuwa-deck-draft-v1',null);if(validLocalDeck(draft))deck=draft;
- deckStoreReady=true;saveDeckDraft();
+function saveDeckDraft() { if (deckStoreReady) try { writeDeckStore() } catch { } }
+function restoreDeckStore(remote) {
+  const stored = readStoredJSON(DECK_STORE, {});
+  const previous = stored.saved ?? readStoredJSON('wuwa-saved-decks-v1', []);
+  deletedDeckIds = Array.isArray(stored.deleted) ? stored.deleted.filter(x => typeof x === 'string') : [];
+  saved = (Array.isArray(previous) ? previous : []).filter(d => validLocalDeck(d) && typeof d.id === 'string' && /^[A-Za-z0-9_-]+$/.test(d.id) && !deletedDeckIds.includes(d.id));
+  for (const d of remote || []) if (validLocalDeck(d) && typeof d.id === 'string' && /^[A-Za-z0-9_-]+$/.test(d.id) && !deletedDeckIds.includes(d.id) && !saved.some(x => x.id === d.id)) saved.push(d);
+  const draft = stored.draft ?? readStoredJSON('wuwa-deck-draft-v1', null); if (validLocalDeck(draft)) deck = draft;
+  deckStoreReady = true; saveDeckDraft();
 }
-function deleteLocalDeck(id){
- const nextSaved=saved.filter(d=>d.id!==id),nextDeleted=[...new Set([...deletedDeckIds,id])];
- const nextDraft=deck.id===id?{name:'เด็คของฉัน',entries:{}}:deck;
- writeDeckStore(nextSaved,nextDraft,nextDeleted);
- saved=nextSaved;deck=nextDraft;deletedDeckIds=nextDeleted;
+function deleteLocalDeck(id) {
+  const nextSaved = saved.filter(d => d.id !== id), nextDeleted = [...new Set([...deletedDeckIds, id])];
+  const nextDraft = deck.id === id ? { name: 'เด็คของฉัน', entries: {} } : deck;
+  writeDeckStore(nextSaved, nextDraft, nextDeleted);
+  saved = nextSaved; deck = nextDraft; deletedDeckIds = nextDeleted;
 }
 
 function savedDecksModalHTML() {
@@ -712,6 +725,73 @@ function detail(code, extra = "") {
   panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong><button data-do="closeCardInfo" aria-label="ปิดรายละเอียดการ์ด">✕</button></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${c.tags.map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${c.variants.map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
   panel.querySelector(".card-info-content").scrollTop = 0;
 }
+function showCharacterStack(p, code) {
+  const stackCodes = (p.stacks && p.stacks[code]) ? p.stacks[code] : [code];
+  const currentCard = card(code);
+  if (!currentCard) return detail(code);
+  const isLeader = code === p.leader;
+  const isMine = room && room.players[room.seat] && p.name === room.players[room.seat].name;
+  const roleName = isLeader ? "ผู้นำ (Leader)" : "ตัวละครสำรอง (Back)";
+  const stackCards = stackCodes.map((c) => card(c)).filter(Boolean);
+
+  const html = `
+    <div class="char-stack-modal">
+      <div class="card-info-heading">
+        <div>
+          <strong style="font-size:17px">${isLeader ? "👑" : "🛡️"} ${esc(currentCard.name)} — ${roleName}</strong>
+          <div class="small muted">${isMine ? "ฝั่งของคุณ" : "ฝั่งคู่แข่ง"} · เลเวลปัจจุบัน Lv.${currentCard.level} · รวม ${stackCards.length} ระดับ</div>
+        </div>
+        <button data-do="close" aria-label="ปิด">✕</button>
+      </div>
+      
+      <div class="char-stack-list">
+        ${stackCards
+      .map((c, idx) => {
+        const isCurrent = c.code === code;
+        return `
+            <div class="stack-card-item ${isCurrent ? "current-level" : "inherited-level"}">
+              <div class="stack-level-header">
+                <span class="badge ${isCurrent ? "pill" : "muted"}">
+                  ${isCurrent ? "⚡ เลเวลปัจจุบัน (Active)" : `🔗 สืบทอดความสามารถจาก Lv.${c.level}`}
+                </span>
+                <span class="stack-code">${c.code} · Lv.${c.level}</span>
+              </div>
+              <div class="stack-card-body">
+                <button class="art-button stack-thumb" data-detail="${c.code}" title="กดเพื่อดูรายละเอียดการ์ดเต็ม">
+                  ${img(c)}
+                </button>
+                <div class="stack-card-details">
+                  <h4>${esc(c.name)} <span class="muted small">Lv.${c.level}</span></h4>
+                  <div class="row" style="margin:4px 0 8px">
+                    <span class="badge">${esc(c.element || "—")}</span>
+                    <span class="badge">${esc(c.weapon || "—")}</span>
+                    <span class="badge">${c.set}</span>
+                  </div>
+                  <div class="effect stack-effect">
+                    ${formatCardText(c.effectTh)}
+                  </div>
+                  ${c.info && c.info !== "-" ? `
+                  <details class="small muted" style="margin-top:6px">
+                    <summary>ข้อความญี่ปุ่นต้นฉบับ</summary>
+                    <p class="effect" style="margin:4px 0;font-size:12px">${formatCardText(c.info)}</p>
+                  </details>` : ""}
+                </div>
+              </div>
+            </div>
+            
+          `;
+      })
+      .join("")}
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:16px">
+        <button data-do="close" class="primary">ปิดหน้าต่าง</button>
+      </div>
+    </div>
+  `;
+  dialog.innerHTML = html;
+  if (!dialog.open) dialog.showModal();
+}
+
 function moveDialog(zone, index) {
   const code = room.players[room.seat][zone][index];
   detail(
@@ -769,19 +849,19 @@ function add(code, delta) {
 }
 function exportDeck() {
   const blob = new Blob(
-      [
-        JSON.stringify(
-          {
-            format: "wuwa-thai-deck-v1",
-            name: deck.name,
-            entries: deck.entries,
-          },
-          null,
-          2,
-        ),
-      ],
-      { type: "application/json" },
-    ),
+    [
+      JSON.stringify(
+        {
+          format: "wuwa-thai-deck-v1",
+          name: deck.name,
+          entries: deck.entries,
+        },
+        null,
+        2,
+      ),
+    ],
+    { type: "application/json" },
+  ),
     url = URL.createObjectURL(blob),
     a = document.createElement("a");
   a.href = url;
@@ -797,6 +877,15 @@ document.addEventListener("click", async (e) => {
       tab = t.dataset.tab;
       render();
       return;
+    }
+    if (t.dataset.charSlot) {
+      const code = t.dataset.charSlot;
+      const seat = Number(t.dataset.seat);
+      const p = room?.players?.[seat];
+      if (p && code) {
+        showCharacterStack(p, code);
+        return;
+      }
     }
     if (t.dataset.detail) {
       detail(t.dataset.detail);
@@ -816,8 +905,8 @@ document.addEventListener("click", async (e) => {
     if (doIt === "warnIncompat") {
       toast(
         "การ์ดนี้ใช้ได้เฉพาะเมื่อมี " +
-          (t.dataset.char || "ตัวละครที่ตรงกัน") +
-          " ในเด็คตัวละคร",
+        (t.dataset.char || "ตัวละครที่ตรงกัน") +
+        " ในเด็คตัวละคร",
       );
       return;
     }
@@ -898,10 +987,10 @@ document.addEventListener("click", async (e) => {
       return;
     }
     if (doIt === "save") {
-      const nextDeck={...structuredClone(deck),id:deck.id||crypto.randomUUID()};
-      const nextSaved=saved.filter(d=>d.id!==nextDeck.id).concat(nextDeck);
-      try{writeDeckStore(nextSaved,nextDeck)}catch{toast('บันทึกไม่ได้ กรุณาส่งออกเด็คเก็บไว้');return}
-      deck=nextDeck;saved=nextSaved;
+      const nextDeck = { ...structuredClone(deck), id: deck.id || crypto.randomUUID() };
+      const nextSaved = saved.filter(d => d.id !== nextDeck.id).concat(nextDeck);
+      try { writeDeckStore(nextSaved, nextDeck) } catch { toast('บันทึกไม่ได้ กรุณาส่งออกเด็คเก็บไว้'); return }
+      deck = nextDeck; saved = nextSaved;
       if (tab === "decks") render();
       toast("บันทึกเด็คในเบราว์เซอร์นี้แล้ว");
       return;
@@ -1089,7 +1178,7 @@ document.addEventListener("input", (e) => {
     page = 1;
     $("#results").innerHTML = results();
   }
-  if (e.target.id === "deckName") {deck.name = e.target.value;saveDeckDraft();}
+  if (e.target.id === "deckName") { deck.name = e.target.value; saveDeckDraft(); }
   if (e.target.id === "actionSearch") {
     actionQuery = e.target.value;
     const g = $("#actionGrid");
@@ -1150,7 +1239,7 @@ try {
   [cards, meta, saved] = await Promise.all([
     api("/cards.json"),
     api("/catalog-meta.json"),
-    api("/api/decks").catch(()=>[]),
+    api("/api/decks").catch(() => []),
   ]);
   restoreDeckStore(saved);
   const last = sessionStorage.getItem("wuwa-room");
@@ -1168,22 +1257,31 @@ try {
 } catch (e) {
   app.innerHTML = `<div class="notice">โหลดเดโมไม่สำเร็จ: ${esc(e.message)} · เปิดผ่าน START-DEMO.cmd แล้วลองใหม่</div>`;
 }
-setInterval(async () => {
-  if (!room || busy || tableDrag) return;
-  try {
-    const next = await api("/api/rooms/" + room.code, undefined, token);
-    if (tableDrag) return;
-    const changed = next.version !== room.version || syncError;
-    room = next;
-    syncError = false;
-    if (changed && tab === "play" && !inLobby) render();
-  } catch {
-    if (!syncError) {
-      syncError = true;
-      if (tab === "play" && !inLobby) render();
+async function pollRoom() {
+  if (room && !busy && !tableDrag) {
+    try {
+      const next = await api("/api/rooms/" + room.code, undefined, token);
+      if (!tableDrag) {
+        const changed = next.version !== room.version || syncError;
+        room = next;
+        syncError = false;
+        if (changed && tab === "play" && !inLobby) render();
+      }
+    } catch {
+      if (!syncError) {
+        syncError = true;
+        if (tab === "play" && !inLobby) render();
+      }
     }
   }
-}, 1000);
+  let delay = 1000;
+  if (room && room.mode === "bot" && room.status === "playing" && tab === "play" && !inLobby) {
+    const isWaitingForBot = room.active !== room.seat || room.phase === "defense" || (room.phase === "combo" && room.comboSeat !== room.seat) || (room.choice && room.choice.seat !== room.seat);
+    if (isWaitingForBot) delay = 120;
+  }
+  setTimeout(pollRoom, delay);
+}
+pollRoom();
 if (document.modelContext?.registerTool) {
   try {
     document.modelContext.registerTool({
@@ -1214,7 +1312,7 @@ if (document.modelContext?.registerTool) {
         }));
       },
     });
-  } catch {}
+  } catch { }
 }
 
 document.addEventListener("keydown", (e) => {

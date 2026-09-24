@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {fileURLToPath} from 'node:url';
-import {key,makePlayer,publicRoom,act} from './engine.mjs';
+import {key,makePlayer,publicRoom,act,isBotPending,getBotStepDelay,stepBot} from './engine.mjs';
 import {presetDeck} from './public/deck-rules.js';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.webp':'image/webp','.mp3':'audio/mpeg'};
@@ -13,6 +13,21 @@ const legacyFile=path.join(dataDir,'demo.json');if(!fs.existsSync(dataFile)&&fs.
 const state=fs.existsSync(dataFile)?JSON.parse(fs.readFileSync(dataFile,'utf8')):{profiles:{},rooms:{}};
 const save=()=>{fs.writeFileSync(dataFile+'.tmp',JSON.stringify(state));fs.renameSync(dataFile+'.tmp',dataFile)};
 const cards=JSON.parse(fs.readFileSync(path.join(root,'public/cards.json'),'utf8'));
+const botTimers=new Map();
+function scheduleBot(code,delay=1000){
+ if(botTimers.has(code))clearTimeout(botTimers.get(code));
+ const t=setTimeout(()=>{
+  botTimers.delete(code);
+  const room=state.rooms[code];
+  if(!room||room.status!=='playing'||room.mode!=='bot')return;
+  const stepped=stepBot(room,cards);
+  if(stepped){
+   save();
+   if(isBotPending(room))scheduleBot(code,getBotStepDelay(room));
+  }
+ },delay);
+ botTimers.set(code,t);
+}
 function body(req){return new Promise((resolve,reject)=>{let text='';req.on('data',chunk=>{text+=chunk;if(text.length>50000){reject(Error('ข้อมูลมากเกินไป'));req.destroy()}});req.on('end',()=>{try{resolve(JSON.parse(text||'{}'))}catch{reject(Error('ข้อมูลไม่ถูกต้อง'))}});req.on('error',reject)})}
 const json=(res,data,status=200)=>{res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store'});res.end(JSON.stringify(data))};
 const buckets=new Map();
@@ -45,7 +60,7 @@ const server=http.createServer(async(req,res)=>{try{
    let code;do{code=key().slice(0,8)}while(Object.hasOwn(state.rooms,code));
    const p=makePlayer(b.name,b.entries,cards),bot=makePlayer('บอท '+b.botDeck,presetDeck(b.botDeck,cards).entries,cards);bot.isBot=true;bot.ready=true;
    const room={rulesVersion:1,code,mode:'bot',difficulty:b.difficulty,version:1,turn:1,active:0,status:'waiting',created:Date.now(),players:[p,bot],log:[]};
-   if(room.rulesVersion)initRules(room);state.rooms[code]=room;save();return json(res,{token:p.token,room:publicRoom(room,p.token)});
+   if(room.rulesVersion)initRules(room);state.rooms[code]=room;save();if(room.mode==='bot'&&isBotPending(room))scheduleBot(code,getBotStepDelay(room));return json(res,{token:p.token,room:publicRoom(room,p.token)});
   }
   if(url.pathname==='/api/rooms/create'&&req.method==='POST'){
 
@@ -54,7 +69,7 @@ const server=http.createServer(async(req,res)=>{try{
   if(url.pathname==='/api/rooms/join'&&req.method==='POST'){
    if(typeof b.code!=='string'||!Object.hasOwn(state.rooms,b.code))throw Error('ไม่พบรหัสห้อง');const room=state.rooms[b.code];if(room.players.length>=2)throw Error('ห้องนี้มีผู้เล่นครบแล้ว');if(typeof b.name!=='string')throw Error('กรอกชื่อผู้เล่น');const p=makePlayer(b.name,b.entries,cards);room.players.push(p);if(room.rulesVersion)initRules(room);room.version++;save();return json(res,{token:p.token,room:publicRoom(room,p.token)});
   }
-  const m=url.pathname.match(/^\/api\/rooms\/([A-Za-z0-9_-]{8})$/);if(m){const room=Object.hasOwn(state.rooms,m[1])?state.rooms[m[1]]:null;if(!room)return json(res,{error:'ไม่พบห้อง'},404);const token=req.headers.authorization?.replace(/^Bearer /,'');if(!room.players.some(p=>p.token===token))return json(res,{error:'คุณไม่มีสิทธิ์เข้าห้องนี้'},403);if(req.method==='GET')return json(res,publicRoom(room,token));const draft=structuredClone(room);const result=act(draft,token,b,cards);state.rooms[m[1]]=draft;save();return json(res,result)}
+  const m=url.pathname.match(/^\/api\/rooms\/([A-Za-z0-9_-]{8})$/);if(m){const room=Object.hasOwn(state.rooms,m[1])?state.rooms[m[1]]:null;if(!room)return json(res,{error:'ไม่พบห้อง'},404);const token=req.headers.authorization?.replace(/^Bearer /,'');if(!room.players.some(p=>p.token===token))return json(res,{error:'คุณไม่มีสิทธิ์เข้าห้องนี้'},403);if(req.method==='GET'){if(room.mode==='bot'&&isBotPending(room)&&!botTimers.has(m[1]))scheduleBot(m[1],getBotStepDelay(room));return json(res,publicRoom(room,token))}if(botTimers.has(m[1])){clearTimeout(botTimers.get(m[1]));botTimers.delete(m[1])}const draft=structuredClone(room);const result=act(draft,token,b,cards,{pacedBot:draft.mode==='bot'});state.rooms[m[1]]=draft;save();if(draft.mode==='bot'&&isBotPending(draft))scheduleBot(m[1],getBotStepDelay(draft));return json(res,result)}
   return json(res,{error:'Not found'},404);
  }
  if(req.method!=='GET'){res.writeHead(405);return res.end()}

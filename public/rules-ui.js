@@ -62,11 +62,14 @@ export function rulesBoard(
       : "<span>รอ " +
         esc(r.players[r.choice.seat].name) +
         " จัดการเอฟเฟกต์</span>";
+  const isBotTurn = !mine && op?.isBot;
   const hint =
     r.phase === "draw"
       ? mine
         ? "กดจั่วการ์ดเพื่อเข้าสู่ Main"
-        : "รออีกฝ่ายจั่วการ์ด"
+        : isBotTurn
+          ? "🤖 บอทกำลังจั่วการ์ด…"
+          : "รออีกฝ่ายจั่วการ์ด"
       : r.phase === "order"
         ? esc(r.players[r.orderWinner].name) + " ชนะการสุ่ม เลือกก่อน/หลัง"
         : r.phase === "setup"
@@ -80,12 +83,22 @@ export function rulesBoard(
               (me.used?.switch ? "✓" : "0/1") +
               " · อัปเลเวล " +
               (me.used?.level ? "✓" : "0/1")
-            : combo
-              ? "สีแดงเท่านั้น · คอมโบเหลือ " +
-                (r.comboLeft < 0 ? "ไม่จำกัด" : r.comboLeft)
-              : defense
-                ? "ลงแอ็กชันคว่ำ 1 ใบ หรือไม่ตอบโต้"
-                : "";
+            : r.phase === "action" && isBotTurn
+              ? "🤖 บอทกำลังเตรียมตัว (ชาร์จคอนแชร์โต / อัปเลเวล)…"
+              : r.phase === "battle" && isBotTurn
+                ? "🤖 บอทกำลังเลือกการ์ดลงประลอง…"
+                : combo
+                  ? "สีแดงเท่านั้น · คอมโบเหลือ " +
+                    (r.comboLeft < 0 ? "ไม่จำกัด" : r.comboLeft)
+                  : r.phase === "combo" && isBotTurn
+                    ? "🤖 บอทกำลังทำคอมโบ…"
+                    : defense
+                      ? "ลงแอ็กชันคว่ำ 1 ใบ หรือไม่ตอบโต้"
+                      : r.phase === "defense" && isBotTurn
+                        ? "🤖 บอทกำลังเลือกการ์ดตอบโต้…"
+                        : r.phase === "result"
+                          ? (isBotTurn ? "สรุปผลการประลอง · บอทกำลังส่งเทิร์น…" : "สรุปผลการประลอง · 👉 กด [จบเทิร์น →] เพื่อส่งเทิร์นให้บอท")
+                          : "";
   return `<section class="battle-shell"><div class="battle-bar"><strong>${r.mode === "bot" ? "บอท · กฎตามเฟส" : "ห้อง " + r.code}</strong><span>${op ? esc(op.name) + " · มือ " + op.handCount + " · ไลฟ์ " + op.hp : "รอเพื่อน"}</span><div>${r.mode === "bot" ? "" : btn("copy", "รหัสห้อง")}<button data-rule="info">กฎ / บันทึก</button>${btn("lobby", "ออกจากสนาม")}</div></div><div class="battle-half opponent-half">${opponentHand(op)}${op ? playmat(op, false, false) : '<div class="waiting-seat">ส่งรหัส ' + r.code + " ให้เพื่อน</div>"}</div><div class="battle-divider">${phaseTrack(r)}<strong>${phaseNames[r.phase] || r.phase} · เทิร์น ${r.turn}</strong><span>${esc(me.name)} · ไลฟ์ ${me.hp} · คอนแชร์โต ${me.table.filter((c) => c.zone === "concerto").length}</span><span>${r.status === "finished" ? (r.winner === null ? "เสมอ" : esc(r.players[r.winner].name) + " ชนะ") : esc(r.players[r.active]?.name || "") + " เป็นเจ้าของเทิร์น"}</span><div class="battle-actions">${controls}${playing ? btn("surrender", "ยอมแพ้") : ""}</div><span class="round-result">${hint}${r.lastDuel ? " · " + esc(r.lastDuel.reason) : ""}</span></div><div class="battle-half">${playmat(me, true, main || action || defense || combo)}</div><div class="hand-dock"><span class="hand-count">มือ ${me.handCount}</span><div class="hand">${me.hand.map((code, i) => `<article class="card ${(action || defense || combo) && actionUnavailable(r, code, card) ? "action-unavailable" : ""}" title="${esc(action || defense || combo ? actionUnavailable(r, code, card) : "")}" ${(main && !me.used?.charge) || action || defense ? `data-hand-drag="${i}" data-code="${code}"` : ""}><button class="art-button" data-detail="${code}" aria-label="${esc(card(code).name)}">${img(card(code))}</button>${main || action || defense ? `<button data-place-hand="${i}" ${main && me.used?.charge ? "disabled" : ""} class="quick-place">${main ? "ชาร์จ" : "วาง"}</button>` : combo ? `<button data-rule="combo" data-index="${i}" ${actionUnavailable(r, code, card) ? "disabled" : ""} class="quick-place">คอมโบ</button>` : setup && !me.mulligan ? `<label><input type="checkbox" data-mulligan="${i}" ${selectedMulligan.has(i) ? "checked" : ""}> เปลี่ยน</label>` : ""}</article>`).join("")}</div></div></section>`;
 }
 const button = (name, label, extra = "") =>

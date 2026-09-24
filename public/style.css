@@ -2992,3 +2992,154 @@ body.has-battle-log.log-collapsed {
         max-height: none
     }
 }
+
+/* Character Stack Modal & Inherited Skills */
+.char-stack-modal {
+    max-width: 680px;
+    width: 92vw;
+    color: var(--text, #e2e8f0);
+}
+
+.char-stack-notice {
+    background: rgba(199, 169, 105, 0.12);
+    border: 1px solid rgba(199, 169, 105, 0.35);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #e5cf9c;
+    margin: 14px 0 18px;
+    line-height: 1.5;
+}
+
+.char-stack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.stack-card-item {
+    background: #0f1924;
+    border: 1px solid #233547;
+    border-radius: 10px;
+    padding: 14px;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.stack-card-item.current-level {
+    border-color: var(--gold, #c7a969);
+    background: linear-gradient(145deg, #132233, #0d1722);
+    box-shadow: 0 0 16px rgba(199, 169, 105, 0.15);
+}
+
+.stack-card-item.inherited-level {
+    border-color: #2e445b;
+    background: #0d1620;
+    opacity: 0.95;
+}
+
+.stack-level-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 6px;
+}
+
+.stack-code {
+    font-family: monospace;
+    font-size: 12px;
+    color: var(--muted, #8b9bb0);
+}
+
+.stack-card-body {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.stack-thumb {
+    width: 100px;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    transition: transform .2s;
+}
+
+.stack-thumb:hover {
+    transform: scale(1.04);
+}
+
+.stack-thumb img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.stack-card-details h4 {
+    margin: 0;
+    font-size: 16px;
+    color: #f1f5f9;
+}
+
+.stack-effect {
+    margin: 8px 0 0 0;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    background: #080f17;
+    border-radius: 6px;
+    border-left: 3px solid var(--gold, #c7a969);
+}
+
+.stack-card-item.inherited-level .stack-effect {
+    border-left-color: #557799;
+}
+
+.stack-connector {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gold, #c7a969);
+    padding: 2px 0;
+    letter-spacing: 0.5px;
+}
+
+.char-stack-btn {
+    position: relative;
+}
+
+.stack-indicator {
+    position: absolute;
+    bottom: -6px;
+    right: -4px;
+    background: linear-gradient(135deg, #c7a969, #8e6c2d);
+    color: #0b1118;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    border: 1px solid #ffeaae;
+    z-index: 3;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.character-slot.has-stack {
+    position: relative;
+}
+
+.character-slot.has-stack::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border: 1px dashed rgba(199, 169, 105, 0.4);
+    border-radius: 10px;
+    pointer-events: none;
+}
