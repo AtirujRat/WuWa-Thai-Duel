@@ -20,7 +20,7 @@ const server=http.createServer(async(req,res)=>{try{
  res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','DENY');
  const url=new URL(req.url,'http://localhost');
  if(url.pathname.startsWith('/api/')){
-  if(!['GET','POST'].includes(req.method))return json(res,{error:'Method not allowed'},405);
+  if(!['GET','POST','DELETE'].includes(req.method))return json(res,{error:'Method not allowed'},405);
   if(req.headers.origin&&!['http:','https:'].some(protocol=>req.headers.origin===`${protocol}//${req.headers.host}`))return json(res,{error:'Origin not allowed'},403);
   let id=(req.headers.cookie||'').match(/(?:^|;\s*)wuwa=([A-Za-z0-9_-]+)/)?.[1];
   if(!id||!Object.hasOwn(state.profiles,id)){id=key();state.profiles[id]={decks:[]};save();res.setHeader('Set-Cookie',`wuwa=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=31536000`)}
@@ -32,6 +32,13 @@ const server=http.createServer(async(req,res)=>{try{
    if(typeof b.name!=='string'||b.name.length>80||!b.entries||typeof b.entries!=='object'||Array.isArray(b.entries))throw Error('รูปแบบเด็คไม่ถูกต้อง');
    for(const [code,n] of Object.entries(b.entries)){const c=cards.find(c=>c.code===code);if(!c||!Number.isInteger(n)||n<1||n>(c.type==='character'?1:3))throw Error('การ์ดหรือจำนวนไม่ถูกต้อง')}
    const old=b.id?profile.decks.find(d=>d.id===b.id):null;if(b.id&&!old)throw Error('ไม่พบเด็ค');if(!old&&profile.decks.length>=100)throw Error('เก็บได้ไม่เกิน 100 เด็ค');const deck={id:old?.id||key(),name:b.name.trim()||'เด็คของฉัน',entries:b.entries};if(old)profile.decks[profile.decks.indexOf(old)]=deck;else profile.decks.push(deck);save();return json(res,deck);
+  }
+  const dm=url.pathname.match(/^\/api\/decks\/([A-Za-z0-9_-]+)$/);
+  if(dm){
+   if(req.method!=='DELETE')return json(res,{error:'Method not allowed'},405);
+   const idx=profile.decks.findIndex(d=>d.id===dm[1]);
+   if(idx===-1)return json(res,{error:'ไม่พบเด็ค'},404);
+   profile.decks.splice(idx,1);save();return json(res,{ok:true});
   }
   if(url.pathname==='/api/rooms/bot'&&req.method==='POST'){
    if(typeof b.name!=='string'||!['easy','normal'].includes(b.difficulty)||!['SD01','SD02'].includes(b.botDeck))throw Error('ตัวเลือกบอทไม่ถูกต้อง');

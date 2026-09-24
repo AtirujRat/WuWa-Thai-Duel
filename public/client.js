@@ -448,13 +448,37 @@ function deckCardRow(d) {
     ? '<span class="small preset-pill">เด็คตั้งต้น</span>'
     : `<span class="small ${v.valid ? "pill" : "danger"}">${v.valid ? "พร้อมเล่น" : "ยังไม่ครบ"}</span>`;
   const actions = d.isPreset
-    ? btn("dupPreset", "ทำสำเนา", `data-preset="${d.presetKey}"`)
-    : `${btn("editDeck", "แก้ไข", `data-id="${d.id}"`)}${btn("dupDeck", "ทำสำเนา", `data-id="${d.id}"`)}${btn("delDeck", "ลบ", `data-id="${d.id}"`, "danger")}`;
+    ? ""
+    : `${btn("editDeck", "แก้ไข", `data-id="${d.id}"`)}${btn("delDeck", "ลบ", `data-id="${d.id}"`, "danger")}`;
   return `<div class="deck-card-row ${isActive ? "selected" : ""}" data-do="${d.isPreset ? "selectPreset" : "selectSaved"}" ${d.isPreset ? `data-preset="${d.presetKey}"` : `data-id="${d.id}"`}><div class="deck-card-thumbs">${uniqueChars
     .slice(0, 3)
     .map((c) => `<img src="${c.img}" alt="${esc(c.name)}">`)
     .join("")}</div><div class="deck-card-info"><h3>${esc(d.name)}${isActive ? ' <span class="deck-selected-tag">✓ กำลังใช้</span>' : ""}</h3><p class="muted small">${esc(uniqueChars.map((c) => c.name).join(" · "))} — ${v.actions} ใบ</p></div><div class="deck-card-actions">${badge}${actions}</div></div>`;
 }
+const DECK_STORE='wuwa-decks-v2';
+let deckStoreReady=false,deletedDeckIds=[];
+function readStoredJSON(key,fallback){try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}}
+function validLocalDeck(d){return d&&typeof d.name==='string'&&d.entries&&typeof d.entries==='object'&&!Array.isArray(d.entries)&&Object.entries(d.entries).every(([code,n])=>/^[A-Za-z0-9-]+$/.test(code)&&Number.isInteger(n)&&n>0&&n<=3)}
+function writeDeckStore(nextSaved=saved,nextDraft=deck,nextDeleted=deletedDeckIds){
+ localStorage.setItem(DECK_STORE,JSON.stringify({saved:nextSaved,draft:nextDraft,deleted:nextDeleted}));
+}
+function saveDeckDraft(){if(deckStoreReady)try{writeDeckStore()}catch{}}
+function restoreDeckStore(remote){
+ const stored=readStoredJSON(DECK_STORE,{});
+ const previous=stored.saved??readStoredJSON('wuwa-saved-decks-v1',[]);
+ deletedDeckIds=Array.isArray(stored.deleted)?stored.deleted.filter(x=>typeof x==='string'):[];
+ saved=(Array.isArray(previous)?previous:[]).filter(d=>validLocalDeck(d)&&typeof d.id==='string'&&/^[A-Za-z0-9_-]+$/.test(d.id)&&!deletedDeckIds.includes(d.id));
+ for(const d of remote||[])if(validLocalDeck(d)&&typeof d.id==='string'&&/^[A-Za-z0-9_-]+$/.test(d.id)&&!deletedDeckIds.includes(d.id)&&!saved.some(x=>x.id===d.id))saved.push(d);
+ const draft=stored.draft??readStoredJSON('wuwa-deck-draft-v1',null);if(validLocalDeck(draft))deck=draft;
+ deckStoreReady=true;saveDeckDraft();
+}
+function deleteLocalDeck(id){
+ const nextSaved=saved.filter(d=>d.id!==id),nextDeleted=[...new Set([...deletedDeckIds,id])];
+ const nextDraft=deck.id===id?{name:'เด็คของฉัน',entries:{}}:deck;
+ writeDeckStore(nextSaved,nextDraft,nextDeleted);
+ saved=nextSaved;deck=nextDraft;deletedDeckIds=nextDeleted;
+}
+
 function savedDecksModalHTML() {
   return `${btn("close", "✕", "", "close")}<h2>เด็คที่บันทึกไว้ <span class="badge">${saved.length}</span></h2><div class="deck-card-list">${saved.map(deckCardRow).join("") || '<div class="empty">ยังไม่มีเด็คที่บันทึกไว้</div>'}</div>`;
 }
@@ -505,7 +529,7 @@ function section2CharacterCards() {
   if (selected.length === 0) {
     return `<section class="deck-section panel"><div class="deck-section-header"><div><h2>2. การ์ดตัวละคร</h2></div><span class="badge">0 / 15 ใบ</span></div><div class="empty">ยังไม่ได้เลือกตัวละคร<br><span class="small"></span></div></section>`;
   }
-  return `<section class="deck-section panel preset-section"><div class="deck-section-header"><div><h2>2. การ์ดตัวละคร <span class="preset-label">🔒 พรีเซ็ต</span></h2><p class="muted small">ระบบเลือกให้อัตโนมัติเมื่อเลือกตัวละครหลัก (Lv.0 ×1 · Lv.1 ×2 · Lv.2 ×2 ต่อคน) — ส่วนนี้จัดการเองไม่ได้ ปรับได้เฉพาะการ์ดแอ็กชันด้านล่าง</p></div><span class="badge ${totalCharCards >= 3 && totalCharCards <= 15 ? "pill" : "danger"}">${totalCharCards} / 15 ใบ</span></div><div class="stack section-scroll">${selected
+  return `<section class="deck-section panel preset-section"><div class="deck-section-header"><div><h2>2. การ์ดตัวละคร <span class="preset-label">🔒 พรีเซ็ต</span></h2><p class="muted small">ระบบเลือกให้อัตโนมัติเมื่อเลือกตัวละครหลัก (Lv.0 ×1 · Lv.1 ×2 · Lv.2 ×2 ต่อคน) — ส่วนนี้จัดการเองไม่ได้ ปรับได้เฉพาะการ์ดแอ็กชันด้านล่าง</p></div><span class="badge ${totalCharCards >= 3 && totalCharCards <= 15 ? "pill" : "danger"}">${totalCharCards} / 15 ใบ</span></div><div class="char-level-rows section-scroll">${selected
     .map((ch) => {
       const charCards = cards
         .filter((c) => c.type === "character" && c.character === ch.th)
@@ -513,10 +537,10 @@ function section2CharacterCards() {
           (a, b) =>
             Number(a.level) - Number(b.level) || a.code.localeCompare(b.code),
         );
-      return `<div class="char-group-card"><div class="char-group-title"><div><strong>${esc(ch.name)}</strong> <span class="muted small">(${esc(ch.th)})</span> <span class="badge" style="margin-left:8px">${esc(ch.element)} · ${esc(ch.weapon)}</span></div><span class="small muted">${charCards.filter((c) => deck.entries[c.code]).length} / ${charCards.length} ใบในพรีเซ็ต</span></div><div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px">${charCards
+      return `<div class="char-level-row"><div class="char-level-label">${esc(ch.name)}</div><div class="char-level-cards">${charCards
         .map((c) => {
           const inDeck = (deck.entries[c.code] || 0) > 0;
-          return `<article class="card preset-card ${inDeck ? "in-preset" : "out-preset"}"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="code">${c.code}</span><span class="badge pill">Lv. ${c.level}</span></div><h3 style="font-size:14px;margin:4px 0">${esc(c.name)}</h3><div class="card-meta small muted">${c.set}</div><span class="preset-stamp ${inDeck ? "stamp-in" : "stamp-out"}">${inDeck ? "🔒 อยู่ในเด็ค" : "ไม่ได้เลือก"}</span></article>`;
+          return `<button class="char-level-card ${inDeck ? "in-deck" : ""}" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)} Lv.${c.level}">${img(c)}<span class="char-level-badge">Lv.${c.level}</span></button>`;
         })
         .join("")}</div></div>`;
     })
@@ -620,6 +644,7 @@ function guestName() {
   return "Guest-" + Math.floor(1000 + Math.random() * 9000);
 }
 function render() {
+  saveDeckDraft();
   document.body.classList.toggle(
     "battle-view",
     tab === "play" && !!room && !inLobby,
@@ -652,6 +677,7 @@ function render() {
   updateBattleLog(room, tab === "play" && !inLobby);
 }
 function refreshDeck() {
+  saveDeckDraft();
   if (tab === "decks") {
     const left = $(".deck-builder-left"),
       right = $(".deck-builder-right");
@@ -872,30 +898,18 @@ document.addEventListener("click", async (e) => {
       return;
     }
     if (doIt === "save") {
-      deck = await api("/api/decks", deck);
-      saved = await api("/api/decks");
+      const nextDeck={...structuredClone(deck),id:deck.id||crypto.randomUUID()};
+      const nextSaved=saved.filter(d=>d.id!==nextDeck.id).concat(nextDeck);
+      try{writeDeckStore(nextSaved,nextDeck)}catch{toast('บันทึกไม่ได้ กรุณาส่งออกเด็คเก็บไว้');return}
+      deck=nextDeck;saved=nextSaved;
       if (tab === "decks") render();
-      toast("บันทึกเด็คแล้ว");
+      toast("บันทึกเด็คในเบราว์เซอร์นี้แล้ว");
       return;
     }
     if (doIt === "selectPreset") {
       deck = presetDeck(t.dataset.preset, cards);
       render();
       toast("โหลดเด็คฝึก " + t.dataset.preset + " แล้ว");
-      return;
-    }
-    if (doIt === "dupPreset") {
-      const set = t.dataset.preset,
-        d = presetDeck(set, cards);
-      t.disabled = true;
-      try {
-        await api("/api/decks", { name: d.name, entries: d.entries });
-        saved = await api("/api/decks");
-        render();
-        toast("บันทึกเด็คฝึก " + set + " เป็นเด็คของฉันแล้ว");
-      } finally {
-        t.disabled = false;
-      }
       return;
     }
     if (doIt === "selectSaved") {
@@ -918,35 +932,18 @@ document.addEventListener("click", async (e) => {
       toast("เปิดเด็ค " + d.name + " เพื่อแก้ไข");
       return;
     }
-    if (doIt === "dupDeck") {
-      const d = saved.find((x) => x.id === t.dataset.id);
-      if (!d) return;
-      t.disabled = true;
-      try {
-        await api("/api/decks", {
-          name: d.name + " (สำเนา)",
-          entries: structuredClone(d.entries),
-        });
-        saved = await api("/api/decks");
-        if (dialog.open) dialog.innerHTML = savedDecksModalHTML();
-        toast("ทำสำเนาเด็คแล้ว");
-      } finally {
-        t.disabled = false;
-      }
-      return;
-    }
     if (doIt === "delDeck") {
       const d = saved.find((x) => x.id === t.dataset.id);
       if (!d) return;
       if (!confirm('ลบเด็ค "' + d.name + '" ? การลบไม่สามารถย้อนกลับได้')) return;
       t.disabled = true;
       try {
-        await fetch("/api/decks/" + d.id, { method: "DELETE" });
-        saved = await api("/api/decks");
+        deleteLocalDeck(d.id);
         if (dialog.open) dialog.innerHTML = savedDecksModalHTML();
+        render();
         toast("ลบเด็คแล้ว");
       } catch {
-        toast("ลบเด็คไม่สำเร็จ");
+        toast("ลบเด็คไม่สำเร็จ — เบราว์เซอร์ไม่อนุญาตให้บันทึกข้อมูล");
       } finally {
         t.disabled = false;
       }
@@ -1092,7 +1089,7 @@ document.addEventListener("input", (e) => {
     page = 1;
     $("#results").innerHTML = results();
   }
-  if (e.target.id === "deckName") deck.name = e.target.value;
+  if (e.target.id === "deckName") {deck.name = e.target.value;saveDeckDraft();}
   if (e.target.id === "actionSearch") {
     actionQuery = e.target.value;
     const g = $("#actionGrid");
@@ -1153,8 +1150,9 @@ try {
   [cards, meta, saved] = await Promise.all([
     api("/cards.json"),
     api("/catalog-meta.json"),
-    api("/api/decks"),
+    api("/api/decks").catch(()=>[]),
   ]);
+  restoreDeckStore(saved);
   const last = sessionStorage.getItem("wuwa-room");
   if (last) {
     try {

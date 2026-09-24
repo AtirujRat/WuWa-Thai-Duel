@@ -37,21 +37,29 @@ select {
 
 button {
     cursor: pointer;
-    background: #1a2736;
+    background: #1f3350;
     color: var(--text);
-    border: 1px solid var(--line);
+    border: 1px solid #3f5b7d;
     border-radius: 7px;
-    padding: 9px 15px
+    padding: 9px 15px;
+    font-weight: 500;
+    transition: background .15s ease, border-color .15s ease, transform .1s ease
 }
 
 button:hover {
-    border-color: var(--gold);
-    background: #263548
+    border-color: #6fa3dd;
+    background: #294670;
+    transform: translateY(-1px)
+}
+
+button:active {
+    transform: translateY(0)
 }
 
 button:disabled {
     opacity: .45;
-    cursor: not-allowed
+    cursor: not-allowed;
+    transform: none
 }
 
 button.primary {
@@ -59,6 +67,23 @@ button.primary {
     color: #171d23;
     border-color: var(--gold);
     font-weight: 600
+}
+
+button.primary:hover {
+    background: #e8d6ac;
+    border-color: #e8d6ac
+}
+
+button.danger {
+    background: #4a2020;
+    color: #ffb4ae;
+    border-color: #8a3b34;
+    font-weight: 600
+}
+
+button.danger:hover {
+    background: #632a27;
+    border-color: #c65a4f
 }
 
 a {
@@ -276,9 +301,15 @@ button:focus-visible {
 }
 
 .add {
-    padding: 2px 10px;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: var(--gold);
-    font-size: 19px
+    font-size: 19px;
+    border-radius: 50%
 }
 
 .notice {
@@ -636,7 +667,17 @@ footer {
 }
 
 .close {
-    float: right
+    float: right;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #2a3c52;
+    border-color: #4a6280;
+    font-size: 15px
 }
 
 .pagination {
@@ -2606,7 +2647,7 @@ body.has-battle-log.log-collapsed {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 2fr 3fr;
     gap: 16px
 }
 
@@ -2768,25 +2809,79 @@ body.has-battle-log.log-collapsed {
     border-radius: 5px
 }
 
-/* Section 2: Character all level cards */
-.char-group-card {
-    margin-bottom: 20px;
-    padding: 16px;
-    background: #0c141d;
-    border: 1px solid var(--line);
-    border-radius: 8px
+/* Section 2: Character level rows (label left, cards in a row on the right) */
+.char-level-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 22px
 }
 
-.char-group-title {
+.char-level-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--gold);
+    align-items: flex-start;
+    gap: 22px;
+    padding: 18px 20px;
+    background: #0c141d;
+    border: 1px solid var(--line);
+    border-radius: 10px
+}
+
+.char-level-label {
+    flex: none;
+    width: 130px;
+    padding-top: 6px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text)
+}
+
+.char-level-cards {
+    flex: 1;
+    display: flex;
     flex-wrap: wrap;
-    gap: 8px
+    gap: 14px
+}
+
+.char-level-card {
+    position: relative;
+    flex: none;
+    width: 96px;
+    padding: 0;
+    border-radius: 9px;
+    overflow: hidden;
+    border: 2px solid var(--line);
+    background: #101a26;
+    transition: border-color .2s ease, transform .15s ease
+}
+
+.char-level-card img {
+    display: block;
+    width: 100%;
+    aspect-ratio: .716;
+    object-fit: cover
+}
+
+.char-level-card:hover {
+    transform: translateY(-2px);
+    border-color: #586e87
+}
+
+.char-level-card.in-deck {
+    border-color: #4f9eff;
+    box-shadow: 0 0 12px rgba(79, 158, 255, .35)
+}
+
+.char-level-badge {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: rgba(11, 17, 25, .85);
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, .15)
 }
 
 /* Section 2 (locked preset) + preset tags used elsewhere */
@@ -2839,51 +2934,6 @@ body.has-battle-log.log-collapsed {
     background: repeating-linear-gradient(135deg, rgba(219, 197, 152, .05) 0 14px, transparent 14px 28px);
     -webkit-mask: linear-gradient(180deg, #000 0, transparent 90px);
     mask: linear-gradient(180deg, #000 0, transparent 90px)
-}
-
-.preset-card {
-    background: #101a26;
-    padding: 8px;
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    transition: opacity .2s ease, filter .2s ease, border-color .2s ease
-}
-
-.preset-card.in-preset {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 1px rgba(219, 197, 152, .22) inset
-}
-
-.preset-card.out-preset {
-    opacity: .35;
-    filter: grayscale(.9)
-}
-
-.preset-card.out-preset:hover {
-    opacity: .6
-}
-
-.preset-stamp {
-    display: block;
-    margin-top: 8px;
-    text-align: center;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 4px 6px;
-    border-radius: 5px;
-    letter-spacing: .2px
-}
-
-.stamp-in {
-    background: #162c1d;
-    color: #9ce7b0;
-    border: 1px solid #235232
-}
-
-.stamp-out {
-    background: #1a222c;
-    color: var(--muted);
-    border: 1px dashed var(--line)
 }
 
 .deck-row.locked {
