@@ -1,76 +1,88 @@
-import { displayPhase } from "./phase-track.js";
-// Draw and card handling use user-provided local recordings; flips are synthesized.
-let context,
-  enabled = true,
-  previous = null,
-  drawBufferPromise,
-  handleBufferPromise,
-  phaseBufferPromise,
-  clickBufferPromise;
-function loadDrawSound() {
+import { displayPhase } from "./phase-track.ts";
+import type { PublicRoom } from "../types/game.ts";
+
+let context: AudioContext | null = null;
+let enabled = true;
+let previous: PublicRoom | null = null;
+let drawBufferPromise: Promise<AudioBuffer | null> | null = null;
+let handleBufferPromise: Promise<AudioBuffer | null> | null = null;
+let phaseBufferPromise: Promise<AudioBuffer | null> | null = null;
+let clickBufferPromise: Promise<AudioBuffer | null> | null = null;
+
+function loadDrawSound(): Promise<AudioBuffer | null> | null {
   if (!context) return null;
   drawBufferPromise ??= fetch("/audio/card-draw.mp3")
     .then((r) => {
       if (!r.ok) throw Error("Draw audio unavailable");
       return r.arrayBuffer();
     })
-    .then((data) => context.decodeAudioData(data))
+    .then((data) => context!.decodeAudioData(data))
     .catch(() => {
       drawBufferPromise = null;
       return null;
     });
   return drawBufferPromise;
 }
-function loadHandleSound() {
+
+function loadHandleSound(): Promise<AudioBuffer | null> | null {
   if (!context) return null;
   handleBufferPromise ??= fetch("/audio/card-handle.mp3")
     .then((r) => {
       if (!r.ok) throw Error("Card handling audio unavailable");
       return r.arrayBuffer();
     })
-    .then((data) => context.decodeAudioData(data))
+    .then((data) => context!.decodeAudioData(data))
     .catch(() => {
       handleBufferPromise = null;
       return null;
     });
   return handleBufferPromise;
 }
-function loadPhaseSound() {
+
+function loadPhaseSound(): Promise<AudioBuffer | null> | null {
   if (!context) return null;
   phaseBufferPromise ??= fetch("/audio/phase-change.mp3")
     .then((r) => {
       if (!r.ok) throw Error("Phase audio unavailable");
       return r.arrayBuffer();
     })
-    .then((data) => context.decodeAudioData(data))
+    .then((data) => context!.decodeAudioData(data))
     .catch(() => {
       phaseBufferPromise = null;
       return null;
     });
   return phaseBufferPromise;
 }
-function loadClickSound() {
+
+function loadClickSound(): Promise<AudioBuffer | null> | null {
   if (!context) return null;
   clickBufferPromise ??= fetch("/audio/click-card.mp3")
     .then((r) => {
       if (!r.ok) throw Error("Click card audio unavailable");
       return r.arrayBuffer();
     })
-    .then((data) => context.decodeAudioData(data))
+    .then((data) => context!.decodeAudioData(data))
     .catch(() => {
       clickBufferPromise = null;
       return null;
     });
   return clickBufferPromise;
 }
+
 try {
   enabled = localStorage.getItem("wuwa-sound") !== "off";
 } catch {}
-const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-function ensureContext() {
+
+const reduced = (): boolean =>
+  typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function ensureContext(): AudioContext | null {
   if (!enabled) return null;
   try {
-    context ??= new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    context ??= new AudioCtx();
     if (context.state === "suspended") context.resume().catch(() => {});
     loadDrawSound();
     loadHandleSound();
@@ -81,13 +93,18 @@ function ensureContext() {
     return null;
   }
 }
-function unlock() {
+
+function unlock(): void {
   ensureContext();
 }
-document.addEventListener("pointerdown", unlock, { passive: true });
-document.addEventListener("keydown", unlock);
-export function sound(kind) {
-  if (!enabled || document.hidden) return;
+
+if (typeof document !== "undefined") {
+  document.addEventListener("pointerdown", unlock, { passive: true });
+  document.addEventListener("keydown", unlock);
+}
+
+export function sound(kind: string): void {
+  if (!enabled || (typeof document !== "undefined" && document.hidden)) return;
   const ctx = ensureContext();
   if (!ctx) return;
   if (ctx.state === "suspended") {
@@ -100,9 +117,8 @@ export function sound(kind) {
     return;
   }
   if (ctx.state !== "running") return;
-  if (
-    ["draw", "lift", "place", "phase", "card", "handle", "click"].includes(kind)
-  ) {
+
+  if (["draw", "lift", "place", "phase", "card", "handle", "click"].includes(kind)) {
     const promise =
       kind === "phase"
         ? loadPhaseSound()
@@ -112,10 +128,15 @@ export function sound(kind) {
             ? loadClickSound()
             : loadHandleSound();
     promise?.then((buffer) => {
-      if (!buffer || !enabled || document.hidden || ctx.state !== "running")
+      if (
+        !buffer ||
+        !enabled ||
+        (typeof document !== "undefined" && document.hidden) ||
+        ctx.state !== "running"
+      )
         return;
-      const source = ctx.createBufferSource(),
-        gain = ctx.createGain();
+      const source = ctx.createBufferSource();
+      const gain = ctx.createGain();
       source.buffer = buffer;
       gain.gain.value =
         kind === "phase"
@@ -133,8 +154,9 @@ export function sound(kind) {
     });
     return;
   }
+
   const t = ctx.currentTime;
-  const notes =
+  const notes: [number, number, number, number][] =
     kind === "flip"
       ? [
           [560, 900, 0, 0.09],
@@ -146,9 +168,10 @@ export function sound(kind) {
             [180, 65, 0, 0.13],
             [420, 180, 0.025, 0.06],
           ];
+
   for (const [from, to, delay, duration] of notes) {
-    const osc = ctx.createOscillator(),
-      gain = ctx.createGain();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
     osc.type = kind === "place" ? "triangle" : "sine";
     osc.frequency.setValueAtTime(from, t + delay);
     osc.frequency.exponentialRampToValueAtTime(to, t + delay + duration);
@@ -165,9 +188,9 @@ export function sound(kind) {
     };
   }
 }
-function animate(el, kind) {
+
+function animate(el: Element | null, kind: string): void {
   if (!el || reduced() || !el.animate) return;
-  // Animate individual scale/rotate properties to retain the card's position transform.
   const frames =
     kind === "flip"
       ? [
@@ -180,29 +203,30 @@ function animate(el, kind) {
           { translate: "0 2px", scale: ".97", offset: 0.7 },
           { translate: "0 0", scale: "1", filter: "brightness(1)" },
         ];
-  el.animate(frames, {
+  el.animate(frames as Keyframe[], {
     duration: kind === "flip" ? 420 : 330,
     easing: "ease-out",
   });
 }
-export function pickup(el) {
+
+export function pickup(el: HTMLElement | null): void {
   sound("lift");
   el?.classList.add("card-held");
 }
-export function release(el) {
+
+export function release(el: HTMLElement | null): void {
   el?.classList.remove("card-held");
 }
-export function installSound() {
+
+export function installSound(): void {
+  if (typeof document === "undefined") return;
   const button = document.createElement("button");
   button.id = "sound-toggle";
   button.type = "button";
   const label = () => {
     button.textContent = enabled ? "♪ เสียง: เปิด" : "♪ เสียง: ปิด";
     button.setAttribute("aria-pressed", String(enabled));
-    button.setAttribute(
-      "aria-label",
-      enabled ? "ปิดเสียงการ์ด" : "เปิดเสียงการ์ด",
-    );
+    button.setAttribute("aria-label", enabled ? "ปิดเสียงการ์ด" : "เปิดเสียงการ์ด");
   };
   label();
   button.addEventListener("click", () => {
@@ -216,25 +240,29 @@ export function installSound() {
       sound("lift");
     } else context?.suspend().catch(() => {});
   });
-  document.querySelector("header").append(button);
+  document.querySelector("header")?.append(button);
 }
-export function updateEffects(room, visible) {
-  if (!room || !visible) {
+
+export function updateEffects(room: PublicRoom | null | undefined, visible: boolean): void {
+  if (!room || !visible || typeof document === "undefined") {
     previous = null;
     return;
   }
-  const next = structuredClone(room),
-    old = previous;
+  const next = structuredClone(room);
+  const old = previous;
   previous = next;
   if (!old || old.code !== room.code || old.version === room.version) return;
-  const beforePhase = displayPhase(old),
-    currentPhase = displayPhase(room);
+
+  const beforePhase = displayPhase(old);
+  const currentPhase = displayPhase(room);
   const phaseChanged =
     beforePhase !== currentPhase &&
     !["setup", "finished"].includes(currentPhase) &&
     ["draw", "main", "battle", "combo", "end"].includes(currentPhase);
-  let effect = null,
-    drew = false;
+
+  let effect: string | null = null;
+  let drew = false;
+
   room.players.forEach((p, seat) => {
     const before = old.players[seat];
     if (!before) return;
@@ -268,11 +296,14 @@ export function updateEffects(room, visible) {
         p.deckCount < before.deckCount ||
         p.reserveCount < before.reserveCount ||
         (before.deckCount === 0 && p.trash.length < before.trash.length)
-      )
+      ) {
         drew = true;
-      else effect ??= "lift";
+      } else {
+        effect ??= "lift";
+      }
     }
   });
+
   if (drew) {
     sound("draw");
     if (phaseChanged) setTimeout(() => sound("phase"), 220);

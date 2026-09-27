@@ -1,0 +1,8 @@
+node_modules
+dist
+data
+*.log
+public/images
+public/audio
+public/*.json
+package-lock.json

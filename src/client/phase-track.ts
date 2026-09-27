@@ -1,10 +1,11 @@
-export function displayPhase(room) {
+import type { PublicRoom } from "../types/game.ts";
+
+export function displayPhase(room: PublicRoom | null | undefined): string {
   if (!room) return "setup";
   const current =
     room.status === "finished"
       ? "finished"
-      : room.status === "waiting" ||
-          ["waiting", "order", "setup"].includes(room.phase)
+      : room.status === "waiting" || ["waiting", "order", "setup"].includes(room.phase || "")
         ? "setup"
         : room.rulesVersion
           ? {
@@ -19,14 +20,15 @@ export function displayPhase(room) {
               comboEffects: "combo",
               result: "end",
               end: "end",
-            }[room.phase] || "main"
+            }[room.phase || ""] || "main"
           : room.botPhase === "result"
             ? "end"
             : "main";
   return current;
 }
-export function phaseTrack(room) {
-  const steps = [
+
+export function phaseTrack(room: PublicRoom | null | undefined): string {
+  const steps: [string, string, string][] = [
     ["draw", "Draw", "จั่ว"],
     ["main", "Main", "เตรียมการ์ด"],
     ["battle", "Battle", "ตัดสิน"],
@@ -37,11 +39,7 @@ export function phaseTrack(room) {
   const index = steps.findIndex(([key]) => key === current);
   return (
     '<div class="phase-track" aria-label="ลำดับเฟสการเล่น"><span class="phase-caption">' +
-    (current === "setup"
-      ? "เตรียมเริ่มเกม"
-      : current === "finished"
-        ? "จบเกม"
-        : "ลำดับเฟส") +
+    (current === "setup" ? "เตรียมเริ่มเกม" : current === "finished" ? "จบเกม" : "ลำดับเฟส") +
     "</span><ol>" +
     steps
       .map(
@@ -58,7 +56,7 @@ export function phaseTrack(room) {
       )
       .join("") +
     '</ol><span class="phase-note">' +
-    (room.rulesVersion
+    (room?.rulesVersion
       ? "Draw กดจั่วเพื่อเข้า Main · Combo เมื่อเข้าเงื่อนไข"
       : "ห้องเดิม: แสดงลำดับอ้างอิง") +
     "</span></div>"
