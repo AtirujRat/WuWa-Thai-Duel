@@ -1,12 +1,10 @@
-const escape = (text) =>
+const escape = (text: string | null | undefined): string =>
   String(text ?? "").replace(
     /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c,
   );
-function skillTone(label) {
+
+function skillTone(label: string): string {
   if (/ผู้นำ|リーダー/.test(label)) return "leader";
   if (/เลเวล|レベル/.test(label)) return "level";
   if (/ตัดสิน|判定|ประลอง|対抗/.test(label)) return "judgment";
@@ -14,16 +12,15 @@ function skillTone(label) {
   if (/เข้าสนาม|登場|สลับ|交代/.test(label)) return "entry";
   return "timing";
 }
-export function formatCardText(text) {
+
+export function formatCardText(text: string | null | undefined): string {
   return String(text ?? "")
     .split("\n")
     .map(
       (line) =>
         '<span class="effect-line">' +
         line
-          .split(
-            /(【[^】]+】|สีแดง|สีเขียว|สีน้ำเงิน|สีฟ้า|赤色|緑色|青色|[+＋−-]?\d+)/g,
-          )
+          .split(/(【[^】]+】|สีแดง|สีเขียว|สีน้ำเงิน|สีฟ้า|赤色|緑色|青色|[+＋−-]?\d+)/g)
           .map((token) => {
             if (/^【[^】]+】$/.test(token))
               return (
@@ -33,27 +30,23 @@ export function formatCardText(text) {
                 escape(token) +
                 "</strong>"
               );
-            const color = {
-              สีแดง: "red",
-              赤色: "red",
-              สีเขียว: "green",
-              緑色: "green",
-              สีน้ำเงิน: "blue",
-              สีฟ้า: "blue",
-              青色: "blue",
-            }[token];
+            const color = (
+              {
+                สีแดง: "red",
+                赤色: "red",
+                สีเขียว: "green",
+                緑色: "green",
+                สีน้ำเงิน: "blue",
+                สีฟ้า: "blue",
+                青色: "blue",
+              } as Record<string, string>
+            )[token];
             if (color)
               return (
-                '<strong class="effect-color color-' +
-                color +
-                '">' +
-                escape(token) +
-                "</strong>"
+                '<strong class="effect-color color-' + color + '">' + escape(token) + "</strong>"
               );
             if (/^[+＋−-]?\d+$/.test(token))
-              return (
-                '<strong class="effect-number">' + escape(token) + "</strong>"
-              );
+              return '<strong class="effect-number">' + escape(token) + "</strong>";
             return escape(token);
           })
           .join("") +

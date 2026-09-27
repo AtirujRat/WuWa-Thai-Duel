@@ -7,5 +7,5 @@ if errorlevel 1 (
  exit /b 1
 )
 start "" "http://localhost:4174"
-node server.mjs
+call npm start
 pause
