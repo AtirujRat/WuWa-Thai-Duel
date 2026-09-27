@@ -114,6 +114,11 @@ export interface DuelResult {
 }
 
 export interface GameLogEntry {
+  id?: string;
+  turn?: number;
+  battle?: boolean;
+  source?: string;
+  notice?: boolean;
   time: string;
   text: string;
 }

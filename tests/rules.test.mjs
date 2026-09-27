@@ -355,3 +355,53 @@ test("Main permits preparation only; Battle forbids charge, leader switch and le
   assert.throws(() => raw({ type: "level", code: "SD01-002", indices: [0] }));
   assert.throws(() => raw({ type: "beginBattle" }));
 });
+
+test("Manual effect commands cannot change life or move cards", () => {
+  const r = start(setup());
+  r.choice = {
+    id: "legacy",
+    type: "manual",
+    seat: 0,
+    source: "BP01-069",
+    label: "legacy",
+    options: [{ value: "done", label: "done" }],
+  };
+  const snapshot = JSON.stringify(r.players);
+  for (const extra of [
+    { adjust: { type: "life", seat: 1, n: -20 } },
+    { operation: { type: "move", from: "hand", to: "trash", index: 0 } },
+  ]) {
+    assert.throws(() => send(r, 0, { type: "answer", id: "legacy", ...extra }));
+    assert.equal(JSON.stringify(r.players), snapshot);
+  }
+});
+
+test("Feather Dance resolves pursuit and paid return without confirmation", () => {
+  const r = start(setup());
+  r.phase = "battle";
+  r.lastDuel = { winner: 0 };
+  r.players[0].leader = "SD01-003";
+  r.players[0].table = [
+    { id: "energy", code: "SD01-007", zone: "concerto", faceDown: false, x: 0, y: 0 },
+    { id: "dodge", code: "BP01-069", zone: "action", faceDown: false, x: 0, y: 0 },
+  ];
+  r.queue = [
+    { type: "effect", seat: 0, source: "BP01-069", event: "judgment" },
+    { type: "effect", seat: 0, source: "BP01-069", event: "battleEnd" },
+  ];
+  // A legal staged move triggers the queue without ending the turn.
+  r.players[0].hand.push("SD01-007");
+  send(r, 0, {
+    type: "tablePlace",
+    index: r.players[0].hand.length - 1,
+    code: "SD01-007",
+    zone: "action",
+    x: 0,
+    y: 0,
+  });
+  assert.equal(r.players[0].flags.pursuit, 1);
+  assert.equal(r.choice, null);
+  assert.ok(r.players[0].hand.includes("BP01-069"));
+  assert.ok(r.players[0].trash.includes("SD01-007"));
+  assert.ok(r.log.some((x) => x.notice && x.source === "BP01-069"));
+});
