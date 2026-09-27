@@ -1,3 +1,4 @@
+import { updateBattlePresentation } from "./battle-presentation.ts";
 import { updateBattleLog } from "./battle-log.ts";
 import { formatCardText } from "./card-text.ts";
 import { phaseTrack } from "./phase-track.ts";
@@ -59,7 +60,7 @@ function playmat(p: PublicPlayer, mine: boolean, live: boolean): string {
       const c = card(code);
       if (!c) return "";
       return `<div class="character-slot ${isLeader ? "leader-slot" : ""} ${hasStack ? "has-stack" : ""}">
-      <button data-char-slot="${code}" data-seat="${seatIdx}" class="art-button char-stack-btn" aria-label="${isLeader ? "ผู้นำ" : "แบ็ค"} ${esc(c.name)} Lv.${c.level} (กดดูการ์ดสืบทอด)">
+      <button ${mine && room?.rulesVersion ? `data-rule="fieldCharacter" data-code="${code}"` : `data-char-slot="${code}" data-seat="${seatIdx}"`} class="art-button char-stack-btn" aria-label="${isLeader ? "ผู้นำ" : "แบ็ค"} ${esc(c.name)} Lv.${c.level} (กดดูการ์ดสืบทอด)">
         ${img(c)}
         ${hasStack ? `<span class="stack-indicator" title="สืบทอดความสามารถ ${stack.length} การ์ด">🔗 ซ้อน ${stack.length} ใบ</span>` : ""}
       </button>
@@ -69,7 +70,7 @@ function playmat(p: PublicPlayer, mine: boolean, live: boolean): string {
     })
     .join(
       "",
-    )}</div><div class="character-deck"><span class="deck-back pale" role="img" aria-label="หลังการ์ดตัวละคร"></span><span>เด็คตัวละคร · ${p.reserveCount}</span>${mine ? (room?.rulesVersion ? '<button data-rule="reserve">ดู / อัปเลเวล</button>' : btn("showReserve", "ดูการ์ด")) : ""}</div><div class="mat-trash">${zoneUI(p, "trash", mine, live && !room?.rulesVersion && room?.mode !== "bot")}</div><div class="mat-deck"><span class="deck-back" role="img" aria-label="หลังการ์ดแอ็กชัน"></span><span>สำรับแอ็กชัน · ${p.deckCount}</span>${mine && !room?.rulesVersion ? `<div class="deck-buttons">${btn("draw", "จั่ว", live && p.deckCount ? "" : "disabled", "primary")}${btn("shuffle", "สับเด็ค", live && p.deckCount > 1 ? "" : "disabled")}</div>` : ""}</div></div>`;
+    )}</div><div class="character-deck"><span class="deck-back pale" role="img" aria-label="หลังการ์ดตัวละคร"></span><span>เด็คตัวละคร · ${p.reserveCount}</span>${mine ? (room?.rulesVersion ? '<button data-rule="reserve">ดูการ์ดตัวละคร</button>' : btn("showReserve", "ดูการ์ด")) : ""}</div><div class="mat-trash">${zoneUI(p, "trash", mine, live && !room?.rulesVersion && room?.mode !== "bot")}</div><div class="mat-deck"><span class="deck-back" role="img" aria-label="หลังการ์ดแอ็กชัน"></span><span>สำรับแอ็กชัน · ${p.deckCount}</span>${mine && !room?.rulesVersion ? `<div class="deck-buttons">${btn("draw", "จั่ว", live && p.deckCount ? "" : "disabled", "primary")}${btn("shuffle", "สับเด็ค", live && p.deckCount > 1 ? "" : "disabled")}</div>` : ""}</div></div>`;
 }
 
 document.addEventListener("change", (e) => {
@@ -414,6 +415,7 @@ const dialog = $("#detail") as HTMLDialogElement;
 let toastTimer: ReturnType<typeof setTimeout>;
 
 function toast(s: string): void {
+  if(tab === "decks"){clearTimeout(toastTimer);const popup=$("#toast");if(popup)popup.style.display="none";return;}
   const el = $("#toast");
   if (!el) return;
   el.textContent = s;
@@ -484,7 +486,7 @@ function results(): string {
   return `<p class="muted small">${arr.length} รหัสการ์ด · กดภาพเพื่ออ่านคำแปล</p><div class="grid">${
     arr
       .slice((page - 1) * 24, page * 24)
-      .map((c) => tile(c))
+      .map((c) => tile(c, false))
       .join("") || '<div class="empty">ไม่พบการ์ดที่ตรงกับการค้นหา</div>'
   }</div><div class="pagination">${btn("prev", "← ก่อนหน้า", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${btn("next", "ถัดไป →", page === pages ? "disabled" : "")}</div>`;
 }
@@ -616,13 +618,14 @@ function deckPickerInline(): string {
   return `<div class="deck-card-list">${[...presets, ...saved].map(deckCardRow).join("")}</div>`;
 }
 
+function normalizeColor(color: string | undefined): string {return String(color||'').trim().replace(/^สี/,'').replace('ฟ้า','น้ำเงิน');}
 function deckSummaryBar(): string {
   const v = validateDeck(deck.entries, cards);
   const actionsInDeck = Object.entries(deck.entries)
     .map(([code, n]) => [card(code), n] as [Card | undefined, number])
     .filter(([c]) => c && c.type === "action");
   const colorCount = (color: string) =>
-    actionsInDeck.filter(([c]) => c?.color === color).reduce((s, [, n]) => s + n, 0);
+    actionsInDeck.filter(([c]) => normalizeColor(c?.color) === normalizeColor(color)).reduce((s, [, n]) => s + n, 0);
   const chip = (dot: string, label: string, n: number) =>
     `<span class="color-chip"><span class="color-dot ${dot}"></span>${label} ${n}</span>`;
   return `<div id="deckSummary" class="panel deck-summary-bar row"><input id="deckName" aria-label="ชื่อเด็ค" maxlength="80" value="${esc(deck.name)}"><span class="small ${v.valid ? "pill" : "danger"}">${v.valid ? "✓ พร้อมเล่น" : v.errors.slice(0, 2).map(esc).join(" · ")}</span><span class="badge">${v.characters} ตัวละคร</span><span class="badge">${v.actions} / 40 แอ็กชัน</span><span class="color-count-group">${chip("dot-red", "แดง", colorCount("สีแดง"))}${chip("dot-green", "เขียว", colorCount("สีเขียว"))}${chip("dot-blue", "ฟ้า", colorCount("สีน้ำเงิน"))}</span>${btn("save", "บันทึกเด็ค", "", "primary")}</div>`;
@@ -677,7 +680,7 @@ function renderActionCardsGrid(): string {
   let actions = cards.filter(
     (c) => c.type === "action" && (c.character === "ใช้ร่วมกัน" || selectedNames.has(c.character)),
   );
-  if (actionColor) actions = actions.filter((c) => c.color === actionColor);
+  if (actionColor) actions = actions.filter((c) => normalizeColor(c.color) === normalizeColor(actionColor));
   if (actionQuery) {
     const q = actionQuery.toLowerCase();
     actions = actions.filter((c) =>
@@ -693,7 +696,7 @@ function renderActionCardsGrid(): string {
   return actions
     .map((c) => {
       const inDeck = deck.entries[c.code] || 0;
-      return `<article class="card action-card-tile compatible" style="background:#101a26;padding:10px;border-radius:8px;border:1px solid ${inDeck > 0 ? "var(--gold)" : "var(--line)"}"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="code">${c.code}</span><span class="badge ${c.color === "สีแดง" ? "color-red" : c.color === "สีเขียว" ? "color-green" : "color-blue"}">${esc(c.color)}</span></div><h3 style="font-size:15px;margin:4px 0">${esc(c.name)}</h3><div class="card-meta">${c.character === "ใช้ร่วมกัน" ? '<span class="action-compat-badge">🌐 ใช้ร่วมกัน</span>' : `<span class="action-compat-badge">✓ ${esc(c.character)}</span>`}</div><div class="card-meta" style="margin-top:4px">ค่าใช้ ${c.fee} · พลัง ${c.damage} · เร็ว ${c.speed || "—"}</div><div class="row" style="justify-content:space-between;align-items:center;margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="badge ${inDeck > 0 ? "pill" : ""}">ในเด็ค: ${inDeck} / 3</span><div class="row" style="gap:4px">${btn("remove", "−", `data-code="${c.code}" ${inDeck === 0 ? "disabled" : ""} aria-label="ลด ${esc(c.name)}"`, "add")}${btn("add", "+", `data-code="${c.code}" ${inDeck >= 3 || actionCount >= 40 ? "disabled" : ""} aria-label="เพิ่ม ${esc(c.name)}"`, "add")}</div></div></article>`;
+      return `<article class="card action-card-tile compatible" style="background:#101a26;padding:10px;border-radius:8px;border:1px solid ${inDeck > 0 ? "var(--gold)" : "var(--line)"}"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="code">${c.code}</span><span class="badge ${normalizeColor(c.color) === "แดง" ? "color-red" : normalizeColor(c.color) === "เขียว" ? "color-green" : "color-blue"}">${esc(c.color)}</span></div><h3 style="font-size:15px;margin:4px 0">${esc(c.name)}</h3><div class="card-meta">${c.character === "ใช้ร่วมกัน" ? '<span class="action-compat-badge">🌐 ใช้ร่วมกัน</span>' : `<span class="action-compat-badge">✓ ${esc(c.character)}</span>`}</div><div class="card-meta" style="margin-top:4px">ค่าใช้ ${c.fee} · พลัง ${c.damage} · เร็ว ${c.speed || "—"}</div><div class="row" style="justify-content:space-between;align-items:center;margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="badge ${inDeck > 0 ? "pill" : ""}">ในเด็ค: ${inDeck} / 3</span><div class="row" style="gap:4px">${btn("remove", "−", `data-code="${c.code}" ${inDeck === 0 ? "disabled" : ""} aria-label="ลด ${esc(c.name)}"`, "add")}${btn("add", "+", `data-code="${c.code}" ${inDeck >= 3 || actionCount >= 40 ? "disabled" : ""} aria-label="เพิ่ม ${esc(c.name)}"`, "add")}</div></div></article>`;
     })
     .join("");
 }
@@ -714,8 +717,16 @@ function section3ActionCards(): string {
   return `<section class="deck-section panel"><div class="deck-section-header"><div><h2>3. เลือกการ์ดแอ็กชัน</h2>${selected.length > 0 ? `<p class="muted small">${selected.map((s) => s.name).join(", ")} และการ์ดใช้ร่วมกัน (${totalCompat} ใบ)</p>` : ""}</div><span class="badge count-badge ${actionCount === 40 ? "pill" : "danger"}">${actionCount} / 40 ใบ</span></div><div class="toolbar" style="margin:0 0 16px 0"><input class="search" id="actionSearch" aria-label="ค้นหาการ์ดแอ็กชัน" placeholder="ค้นหาชื่อการ์ด ความสามารถ หรือรหัส..." value="${esc(actionQuery)}"><select id="actionColor" aria-label="กรองสีการ์ด"><option value="" ${actionColor === "" ? "selected" : ""}>ทุกสี</option><option value="สีแดง" ${actionColor === "สีแดง" ? "selected" : ""}>สีแดง</option><option value="สีเขียว" ${actionColor === "สีเขียว" ? "selected" : ""}>สีเขียว</option><option value="สีน้ำเงิน" ${actionColor === "สีน้ำเงิน" ? "selected" : ""}>สีน้ำเงิน</option></select><span class="badge" style="align-self:center">การ์ดที่เล่นได้: ${totalCompat} ใบ</span></div><div id="actionGrid" class="grid section-scroll">${renderActionCardsGrid()}</div></section>`;
 }
 
+function deckMenuHTML(): string {
+ const items: (SavedDeck & {draft?: boolean})[]=saved.slice();
+ if(!deck.id||!saved.some(d=>d.id===deck.id))items.unshift({...deck,draft:true});
+ return '<aside class="deck-menu"><strong>เด็คของคุณ</strong><div class="deck-menu-list">'+items.map(d=>{
+ const seen=new Set<string>();const team=Object.keys(d.entries).map(card).filter((c): c is Card=>!!c&&c.type==='character').sort((a,b)=>Number(a.level)-Number(b.level)).filter(c=>{if(seen.has(c.character))return false;seen.add(c.character);return true}).slice(0,3);
+ return '<button class="deck-menu-item '+(d.id===deck.id?'active':'')+'" '+(d.draft?'':'data-do="editDeck" data-id="'+esc(d.id)+'"')+'><span class="deck-menu-portraits">'+(team.length?team.map(c=>'<img src="'+esc(c.img)+'" alt="'+esc(c.name)+'">').join(''):'เลือกตัวละคร')+'</span><strong>'+esc(d.name)+'</strong><small>'+(d.draft?'ยังไม่บันทึก':team.map(c=>esc(c.name)).join(' · '))+'</small></button>';
+ }).join('')+'</div><button data-do="new">+ สร้างเด็ค</button></aside>';
+}
 function decksPage(): string {
-  return `<div class="deck-builder-shell"><div class="row subnav" style="justify-content:space-between"><div class="row">${btn("preset1", "ใช้เด็คฝึก SD01")}${btn("preset2", "ใช้เด็คฝึก SD02")}${btn("new", "+ เริ่มเด็คใหม่")}${btn("savedModal", "📂 เด็คที่บันทึก (" + saved.length + ")")}</div><div class="row">${btn("import", "นำเข้าเด็ค")}${btn("export", "ส่งออกเด็ค")}<input id="importFile" type="file" accept="application/json,.json" hidden></div></div>${deckSummaryBar()}<div class="deck-builder-main"><div class="deck-builder-left">${section1Characters()}${section2CharacterCards()}</div><div class="deck-builder-right">${section3ActionCards()}</div></div></div>`;
+  return `<div class="deck-workspace">${deckMenuHTML()}<div class="deck-builder-shell"><div class="row subnav" style="justify-content:space-between"><div class="row"></div><div class="row">${btn("import", "นำเข้าเด็ค")}${btn("export", "ส่งออกเด็ค")}<input id="importFile" type="file" accept="application/json,.json" hidden></div></div>${deckSummaryBar()}<div class="deck-builder-main"><div class="deck-builder-left">${section1Characters()}${section2CharacterCards()}</div><div class="deck-builder-right">${section3ActionCards()}</div></div></div></div>`;
 }
 
 let inLobby = false;
@@ -728,9 +739,9 @@ function guestName(): string {
 function playLobby(): string {
   const valid = validateDeck(deck.entries, cards);
   const modeToggle = `<div class="row play-mode-toggle" role="tablist" aria-label="โหมดการเล่น"><button type="button" class="mode-tab ${playMode === "bot" ? "active" : ""}" data-do="playMode" data-mode="bot" role="tab" aria-selected="${playMode === "bot"}">🤖 เล่นกับบอท</button><button type="button" class="mode-tab ${playMode === "friend" ? "active" : ""}" data-do="playMode" data-mode="friend" role="tab" aria-selected="${playMode === "friend"}">👥 เล่นกับผู้เล่น</button></div>`;
-  const botPanel = `<div class="bot-lobby"><p class="small muted">กฎพื้นฐานตามคู่มือ 12 ก.ย. 2026 · เด็คเริ่มต้นประมวลผลเอฟเฟกต์อัตโนมัติ · ชุดเสริมบางใบต้องจัดการเอฟเฟกต์ผ่านแผงยืนยัน</p><div class="row"><label>ระดับบอท <select id="botDifficulty"><option value="easy">ง่าย · สุ่มการ์ด</option><option value="normal" selected>ปกติ · เลือกตามพลัง</option></select></label><label>เด็คบอท <select id="botDeck"><option>SD02</option><option>SD01</option></select></label></div><div style="margin-top:16px">${btn("startBot", "เริ่มเล่นกับบอท", valid.valid ? "" : "disabled", "primary")}</div></div>`;
+  const botPanel = `<div class="bot-lobby"><p class="small muted">กฎพื้นฐานตามคู่มือ 12 ก.ย. 2026 · เด็คเริ่มต้นประมวลผลเอฟเฟกต์อัตโนมัติ · ชุดเสริมบางใบยังไม่รองรับ ระบบจะแจ้งและข้ามเอฟเฟกต์นั้น</p><div class="row"><label>ระดับบอท <select id="botDifficulty"><option value="easy">ง่าย · สุ่มการ์ด</option><option value="normal" selected>ปกติ · เลือกตามพลัง</option></select></label><label>เด็คบอท <select id="botDeck"><option>SD02</option><option>SD01</option></select></label></div><div style="margin-top:16px">${btn("startBot", "เริ่มเล่นกับบอท", valid.valid ? "" : "disabled", "primary")}</div></div>`;
   const friendPanel = `<div class="friend-lobby"><p class="small muted">สร้างห้องแล้วส่งรหัสให้เพื่อน หรือใส่รหัสห้องที่ได้รับมาเพื่อเข้าร่วม</p>${btn("create", "สร้างห้อง", valid.valid ? "" : "disabled")}<hr style="width:100%;border:0;border-top:1px solid var(--line)"><label>รหัสห้องของเพื่อน<input id="roomCode" maxlength="8" value="${esc(new URLSearchParams(location.search).get("room") || "")}" placeholder="รหัส 8 ตัว (แยกตัวพิมพ์เล็ก/ใหญ่)" style="display:block;width:100%"></label>${btn("join", "เข้าห้องเพื่อน", valid.valid ? "" : "disabled")}</div>`;
-  return `<div class="notice">ห้องใหม่ใช้กฎตามเฟส: จั่วอัตโนมัติ ชาร์จ อัปเลเวล เปิดแอ็กชันพร้อมกัน และคอมโบ · เอฟเฟกต์ชุดเสริมบางใบใช้แผงจัดการด้วยตนเอง</div><div class="split"><div class="panel"><h2>เริ่มดวล 1 ต่อ 1</h2>${modeToggle}<div class="stack"><label>ชื่อของคุณ (ไม่บังคับ)<input id="playerName" maxlength="32" placeholder="เว้นว่างได้ · ระบบจะตั้งชื่อ Guest ให้อัตโนมัติ" style="display:block;width:100%"></label><p>เด็คที่เลือก: <strong>${esc(deck.name)}</strong><br><span class="small ${valid.valid ? "pill" : "danger"}">${valid.valid ? "พร้อมเล่น · " + valid.actions + " แอ็กชัน" : esc(valid.errors.join(" · "))}</span></p>${deckPickerInline()}${playMode === "bot" ? botPanel : friendPanel}</div></div><aside class="panel"><h3>ลองสองคนได้อย่างไร</h3><p class="muted">เครื่องเดียว: เปิดเว็บในอีกเบราว์เซอร์ แล้วใส่รหัสห้อง</p><p class="muted">คนละเครื่อง: อยู่ Wi-Fi เดียวกัน เปิดที่อยู่ LAN ที่ปรากฏตอนเริ่มเดโม แล้วใส่รหัสห้องเดียวกัน</p><p class="small muted">การเล่นผ่านอินเทอร์เน็ตคนละเครือข่ายจะเพิ่มเมื่อโฮสต์จริง เก็บหน้าต่างเซิร์ฟเวอร์ไว้ระหว่างเล่น</p>${room ? btn("resume", "กลับเข้าห้องเดิม") : ""}</aside></div>`;
+  return `<div class="notice">ห้องใหม่ใช้กฎตามเฟส: กดจั่ว ชาร์จ อัปเลเวล เปิดแอ็กชันพร้อมกัน และคอมโบ · เอฟเฟกต์แสดงพร้อมรูปการ์ด · ใบที่ยังไม่รองรับจะแจ้งให้ทราบ</div><div class="split"><div class="panel"><h2>เริ่มดวล 1 ต่อ 1</h2>${modeToggle}<div class="stack"><label>ชื่อของคุณ (ไม่บังคับ)<input id="playerName" maxlength="32" placeholder="เว้นว่างได้ · ระบบจะตั้งชื่อ Guest ให้อัตโนมัติ" style="display:block;width:100%"></label><p>เด็คที่เลือก: <strong>${esc(deck.name)}</strong><br><span class="small ${valid.valid ? "pill" : "danger"}">${valid.valid ? "พร้อมเล่น · " + valid.actions + " แอ็กชัน" : esc(valid.errors.join(" · "))}</span></p>${deckPickerInline()}${playMode === "bot" ? botPanel : friendPanel}</div></div><aside class="panel"><h3>ลองสองคนได้อย่างไร</h3><p class="muted">เครื่องเดียว: เปิดเว็บในอีกเบราว์เซอร์ แล้วใส่รหัสห้อง</p><p class="muted">คนละเครื่อง: อยู่ Wi-Fi เดียวกัน เปิดที่อยู่ LAN ที่ปรากฏตอนเริ่มเดโม แล้วใส่รหัสห้องเดียวกัน</p><p class="small muted">การเล่นผ่านอินเทอร์เน็ตคนละเครือข่ายจะเพิ่มเมื่อโฮสต์จริง เก็บหน้าต่างเซิร์ฟเวอร์ไว้ระหว่างเล่น</p>${room ? btn("resume", "กลับเข้าห้องเดิม") : ""}</aside></div>`;
 }
 
 const zoneNames: Record<string, string> = {
@@ -767,6 +778,7 @@ function board(): string {
 }
 
 function render(): void {
+  if(tab === "decks"){clearTimeout(toastTimer);const popup=$("#toast");if(popup)popup.style.display="none";}
   saveDeckDraft();
   document.body.classList.toggle("battle-view", tab === "play" && !!room && !inLobby);
   document.body.classList.toggle("deck-view", tab === "decks");
@@ -787,7 +799,7 @@ function render(): void {
   if (muted) {
     muted.textContent =
       tab === "cards"
-        ? "ค้นหาการ์ดจริง อ่านคำแปลไทย และสร้างเด็คในแบบของคุณ"
+        ? "ค้นหาการ์ดและอ่านความสามารถพร้อมคำแปลภาษาไทย"
         : tab === "decks"
           ? "เลือกตัวละครที่เข้ากัน แล้วเติมแอ็กชันให้ครบ 40 ใบ"
           : "ฝึกกับบอทคนเดียว หรือเปิดโต๊ะเล่นกับเพื่อน";
@@ -804,9 +816,11 @@ function render(): void {
 
   updateEffects(room, tab === "play" && !inLobby);
   updateBattleLog(room, tab === "play" && !inLobby);
+  updateBattlePresentation(room, tab === "play" && !inLobby, card);
 }
 
 function refreshDeck(): void {
+  const menu=$(".deck-menu");if(menu)menu.outerHTML=deckMenuHTML();
   saveDeckDraft();
   if (tab === "decks") {
     const left = $(".deck-builder-left");
@@ -841,7 +855,7 @@ function detail(code: string, extra = ""): void {
     .reduce((s, item) => s + (deck.entries[item.code] || 0), 0);
   const isMax = c.type === "character" ? inDeck >= 1 : inDeck >= 3 || actionCount >= 40;
 
-  panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong><button data-do="closeCardInfo" aria-label="ปิดรายละเอียดการ์ด">✕</button></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${(c.tags || []).map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${(c.variants || []).map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
+  panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong><button data-do="closeCardInfo" aria-label="ปิดรายละเอียดการ์ด">✕</button></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${(c.tags || []).map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${(c.variants || []).map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${tab !== "decks" ? "" : c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
   panel.querySelector(".card-info-content")!.scrollTop = 0;
 }
 

@@ -1,6 +1,13 @@
 import { randomInt, randomBytes } from "node:crypto";
 import type { Card } from "../types/card.ts";
-import type { GameCommand, GameRoom, Player, TableItem, PublicRoom } from "../types/game.ts";
+import type {
+  GameCommand,
+  GameRoom,
+  Player,
+  TableItem,
+  PublicRoom,
+  GameLogEntry,
+} from "../types/game.ts";
 
 const uid = (): string => randomBytes(12).toString("hex");
 
@@ -129,9 +136,9 @@ export function getBotStepDelay(r: GameRoom): number {
   if (r.phase === "draw") return 180;
   if (r.phase === "action") return 220;
   if (r.phase === "battle") return 260;
-  if (r.phase === "defense") return 280;
-  if (r.phase === "combo") return 200;
-  if (r.phase === "result") return 300;
+  if (r.phase === "defense") return 900;
+  if (r.phase === "combo") return 2400;
+  if (r.phase === "result") return 3200;
   return 250;
 }
 
@@ -180,10 +187,23 @@ export class Game {
     return card;
   }
 
-  log(text: string): void {
+  log(text: string, extra: Partial<GameLogEntry> = {}): void {
     this.r.log.push({
       time: new Date().toLocaleTimeString("th-TH", { timeZone: "Asia/Bangkok" }),
       text,
+      id: uid(),
+      turn: this.r.turn,
+      battle: [
+        "battle",
+        "defense",
+        "reveal",
+        "judgment",
+        "combo",
+        "comboEffects",
+        "result",
+        "end",
+      ].includes(this.r.phase || ""),
+      ...extra,
     });
     this.r.log = this.r.log.slice(-100);
   }
@@ -736,7 +756,6 @@ export class Game {
       { type: "effect", event: "combo", seat: s, source: code, ctx: {} },
       { type: "comboDamage", seat: s, source: code },
     );
-    this.log(p.name + " · คอมโบ " + this.c(code).name);
   }
 
   baseDamage(s: number, code: string, combo = false): number {
@@ -763,7 +782,7 @@ export class Game {
     return Math.max(0, n + (Number(p.flags?.bonusDamage) || 0));
   }
 
-  damage(s: number, n: number): void {
+  damage(s: number, n: number, comboSource?: string): void {
     const p = this.p(s);
     n = Math.max(0, n);
     for (const code of this.all(s)) {
@@ -775,15 +794,52 @@ export class Game {
       p.hp = Math.max(0, p.hp - n);
       p.flags ??= {};
       p.flags.damageTaken = true;
-      this.log(p.name + " · รับความเสียหาย " + n);
     }
+    if (n > 0 || comboSource)
+      this.log(
+        (comboSource ? "คอมโบ " + this.c(comboSource).name + " · " : "") + p.name + " · ไลฟ์ -" + n,
+        { source: comboSource },
+      );
     this.check();
   }
 
   drainQueue(): void {
     const r = this.r;
     while ((r.queue || []).length && !r.choice && r.status === "playing") {
-      this.process(r.queue!.shift() as GameOp);
+      this.processWithNotice(r.queue!.shift() as GameOp);
+    }
+  }
+
+  processWithNotice(op: GameOp): void {
+    const r = this.r;
+    const before = r.log.at(-1)?.id;
+    this.process(op);
+    if (r.choice && op.source) r.choice.source = op.source;
+    if (
+      op.source &&
+      !["effect", "manual", "optional", "discard", "switch", "drawUpTo"].includes(op.type)
+    ) {
+      const labels: Record<string, string> = {
+        draw: "จั่วการ์ด",
+        charge: "เพิ่มคอนแชร์โต",
+        heal: "ฟื้นไลฟ์",
+        damage: "ทำความเสียหาย",
+        pursuit: "เพิ่มคอมโบ",
+        flag: "ปรับสถานะตามความสามารถ",
+        returnAction: "นำการ์ดกลับมือ",
+        paidReturn: "จ่ายคอนแชร์โต 1 · นำการ์ดกลับมือ",
+        tax: "ใช้ข้อจำกัดกับฝ่ายตรงข้าม",
+        peek: "เปิดดูมือฝ่ายตรงข้าม",
+      };
+      if (labels[op.type]) {
+        if (r.log.at(-1)?.id !== before)
+          Object.assign(r.log.at(-1)!, { source: op.source, notice: true });
+        else
+          this.log(
+            this.p(op.seat ?? r.active).name + " · " + labels[op.type] + (op.n ? " " + op.n : ""),
+            { source: op.source, notice: true },
+          );
+      }
     }
   }
 
@@ -845,7 +901,7 @@ export class Game {
         return;
       }
       if ((r.queue || []).length) {
-        this.process(r.queue!.shift() as GameOp);
+        this.processWithNotice(r.queue!.shift() as GameOp);
         continue;
       }
       if (r.phase === "setup" && this.p(r.setupSeat ?? -1).isBot) {
@@ -980,6 +1036,20 @@ export class Game {
         }
         break;
       }
+      case "paidReturn":
+        if (
+          this.energy(seat).length &&
+          p.table.some((x) => x.code === o.source && x.zone === "action")
+        ) {
+          this.pay(
+            seat,
+            this.energy(seat)
+              .slice(0, 1)
+              .map((x) => x.id),
+          );
+          this.process({ type: "returnAction", seat, source: o.source });
+        }
+        break;
       case "returnAction": {
         const x = p.table.findIndex((c) => c.zone === "action" && c.code === o.source);
         if (x >= 0) {
@@ -1031,6 +1101,11 @@ export class Game {
           damage: 0,
         };
         r.phase = "judgment";
+        this.log(
+          outcome.winner === null
+            ? "ผล Battle · เสมอ"
+            : "ผล Battle · " + this.p(outcome.winner).name + " ชนะ · " + outcome.reason,
+        );
         this.fieldEvents("judgment");
         this.cardEvents("judgment");
         this.enqueue({ type: "duelDamage" });
@@ -1058,7 +1133,7 @@ export class Game {
       }
       case "comboDamage":
         if (o.source) {
-          this.damage(1 - seat, this.baseDamage(seat, o.source, true));
+          this.damage(1 - seat, this.baseDamage(seat, o.source, true), o.source);
         }
         if (r.status === "playing") r.phase = "combo";
         break;
@@ -1080,13 +1155,10 @@ export class Game {
         }
         break;
       case "manual":
-        this.request(
-          "manual",
-          seat,
-          "เอฟเฟกต์ที่ต้องจัดการและยืนยัน: " + this.c(o.source!).name,
-          [{ value: "done", label: "จัดการเอฟเฟกต์แล้ว" }],
-          { source: o.source, event: o.event },
-        );
+        this.log("ยังไม่รองรับเอฟเฟกต์นี้ · ไม่ได้เปลี่ยนสถานะเกม", {
+          source: o.source,
+          notice: true,
+        });
         break;
     }
   }
@@ -1098,93 +1170,14 @@ export class Game {
     const p = this.p(q.seat);
     const v = cmd.value;
 
-    if (q.type === "manual" && cmd.adjust) {
-      const a = cmd.adjust as { type: string; seat: number; n: number };
-      assert(
-        [
-          "life",
-          "draw",
-          "charge",
-          "pursuit",
-          "damageBonus",
-          "speedBonus",
-          "costBonus",
-          "noCombo",
-        ].includes(a.type),
-        "คำสั่งเอฟเฟกต์ไม่ถูกต้อง",
-      );
-      assert(
-        [0, 1].includes(a.seat) && Number.isInteger(a.n) && Math.abs(a.n) <= 20,
-        "ค่าเอฟเฟกต์ไม่ถูกต้อง",
-      );
-      if (a.type === "life") {
-        this.p(a.seat).hp = Math.max(0, this.p(a.seat).hp + a.n);
-        this.check();
-      } else if (a.type === "draw" || a.type === "charge") {
-        assert(a.n >= 0, "จำนวนไม่ถูกต้อง");
-        this.takeTop(a.seat, a.n, a.type === "draw" ? "hand" : "concerto");
-      } else if (a.type === "pursuit") {
-        this.p(a.seat).flags ??= {};
-        this.p(a.seat).flags!.pursuit = ((this.p(a.seat).flags!.pursuit as number) || 0) + a.n;
-      } else if (a.type === "noCombo") {
-        this.p(a.seat).flags ??= {};
-        this.p(a.seat).flags!.noComboTurn = r.turn + (a.n > 0 ? 1 : 0);
-      } else {
-        const key = a.type === "damageBonus" ? "bonusDamage" : a.type;
-        this.p(a.seat).flags ??= {};
-        this.p(a.seat).flags![key] = ((this.p(a.seat).flags![key] as number) || 0) + a.n;
-      }
-      this.log(
-        "จัดการเอฟเฟกต์ด้วยตนเอง · " + this.c(q.source as string).name + " · " + a.type + " " + a.n,
-      );
-      return;
-    }
-
-    if (q.type === "manual" && cmd.operation) {
-      const a = cmd.operation as {
-        type: string;
-        code?: string;
-        from?: string;
-        to?: string;
-        index?: number;
-      };
-      assert(q.seat === cmd.actor, "จัดการการ์ดของเจ้าของเอฟเฟกต์เท่านั้น");
-      if (a.type === "switch" && a.code) this.switch(q.seat, a.code);
-      else if (a.type === "level" && a.code) this.upgrade(q.seat, a.code, true);
-      else if (a.type === "move" && a.from && a.to) {
-        assert(
-          ["hand", "trash", "reserve"].includes(a.from) &&
-            ["hand", "trash", "concerto", "deck"].includes(a.to),
-          "เขตไม่ถูกต้อง",
-        );
-        assert(a.from !== "reserve", "ตัวละครต้องใช้ปุ่มอัปเลเวล");
-        const fromList = (p as unknown as Record<string, string[]>)[a.from];
-        assert(
-          Number.isInteger(a.index) &&
-            (a.index as number) >= 0 &&
-            (a.index as number) < fromList.length,
-          "ไม่พบการ์ด",
-        );
-        const code = fromList.splice(a.index as number, 1)[0];
-        if (a.to === "concerto") {
-          p.table.push({
-            id: uid(),
-            code,
-            zone: "concerto",
-            faceDown: false,
-            x: 0.5,
-            y: 0.5,
-          });
-        } else {
-          (p as unknown as Record<string, string[]>)[a.to].push(code);
-        }
-      } else throw Error("คำสั่งไม่ถูกต้อง");
-      this.log(p.name + " · จัดการการ์ดตามเอฟเฟกต์ " + this.c(q.source as string).name);
-      return;
-    }
-
+    assert(!cmd.adjust && !cmd.operation, "ไม่อนุญาตให้ปรับค่าสถานะหรือย้ายการ์ดเองจากเอฟเฟกต์");
     if (q.type === "discard") {
       this.discard(q.seat, cmd.indices as number[], q.count as number);
+      if (q.source)
+        this.log(p.name + " · ทิ้งการ์ด " + q.count + " ใบ", {
+          source: q.source as string,
+          notice: true,
+        });
       r.choice = null;
       r.queue ??= [];
       r.queue.unshift(...((q.after as GameOp[]) || []));
@@ -1365,9 +1358,17 @@ export class Game {
     const ops: GameOp[] = [];
     const add = (type: string, n: number, extra: Record<string, unknown> = {}) =>
       ops.push(this.op(type, s, n, extra));
-    const optional = (label: string, inner: GameOp[]) =>
-      ops.push({ type: "optional", seat: s, label, ops: inner });
+    const optional = (label: string, inner: GameOp[]) => ops.push(...inner);
     const isLeader = this.leader(s, code);
+
+    if (code === "BP01-069") {
+      if (e === "judgment" && won) add("pursuit", 1);
+      if (e === "battleEnd" && this.c(p.leader).character === "หยางหยาง" && this.energy(s).length)
+        ops.push({ type: "paidReturn", seat: s, source: code });
+      r.queue ??= [];
+      r.queue.unshift(...ops.map((op) => ({ ...op, source: code })));
+      return;
+    }
 
     const supported =
       code.startsWith("SD") ||
@@ -1478,7 +1479,14 @@ export class Game {
       }
     }
     r.queue ??= [];
-    r.queue.unshift(...ops);
+    const withSource = (op: GameOp): GameOp => ({
+      ...op,
+      source: op.source || code,
+      ops: op.ops?.map(withSource),
+      after: op.after?.map(withSource),
+      bonus: op.bonus?.map(withSource),
+    });
+    r.queue.unshift(...ops.map(withSource));
   }
 
   triggerMatches(c: Card, event: string, isLeader: boolean): boolean {

@@ -1,4 +1,3 @@
-import { formatCardText } from "./card-text.ts";
 import { phaseTrack } from "./phase-track.ts";
 import type { Card } from "../types/card.ts";
 import type { GameCommand, PublicPlayer, PublicRoom } from "../types/game.ts";
@@ -164,9 +163,7 @@ function choice(): void {
   const q = r.choice;
   if (!q || !q.canAnswer) return;
   let content = `<h2>${ui.esc(q.label)}</h2>`;
-  if (q.type === "manual" && q.source) {
-    content += `<p class="notice">เอฟเฟกต์นี้ยังไม่คำนวณอัตโนมัติ โปรดทำตามข้อความก่อนยืนยัน</p><p class="effect">${formatCardText(ui.card(q.source as string).effectTh)}</p><label>ฝ่ายที่ได้รับผล <select id="effectSeat">${r.players.map((p, i) => `<option value="${i}">${ui.esc(p.name)}</option>`).join("")}</select></label><label>การปรับ <select id="effectType"><option value="life">เพิ่ม/ลดไลฟ์</option><option value="draw">จั่ว</option><option value="charge">บนเด็ค → คอนแชร์โต</option><option value="pursuit">เพิ่ม/ลดจำนวนคอมโบ</option><option value="damageBonus">เพิ่ม/ลดพลังโจมตี</option><option value="speedBonus">เพิ่ม/ลดความเร็ว</option><option value="costBonus">เพิ่ม/ลดค่าร่ายเทิร์นนี้</option><option value="noCombo">ห้ามคอมโบ (0 เทิร์นนี้ / 1 เทิร์นหน้า)</option></select></label><input id="effectN" type="number" min="-20" max="20" value="1" aria-label="จำนวนเอฟเฟกต์">${button("adjust", "ปรับตามเอฟเฟกต์")}${q.seat === r.seat ? button("manualCards", "จัดการการ์ดตามเอฟเฟกต์") : ""}`;
-  }
+  if (q.type === "manual") return;
   if (q.type === "discard") {
     content +=
       checks(
@@ -238,12 +235,36 @@ export function setupRulesUI(value: RulesUIContext): void {
             payment: selected("payment"),
           };
           break;
-        case "reserve": {
+        case "reserve":
           modal(
-            `<h2>เด็คตัวละคร</h2><p>อัปได้เลเวลเดิมหรือ +1 · ทิ้งการ์ดตามเลเวลปลายทาง</p><div class="rule-picks">${p.reserve.map((code) => `<div><button data-detail="${code}"><img src="${ui.card(code).img}" alt="${ui.esc(ui.card(code).name)}"></button><span>${ui.esc(ui.card(code).name)} Lv.${ui.card(code).level}</span>${canUpgradeCard(r, code, ui.card) ? button("levelPick", "อัปเลเวล", `data-code="${code}"`) : ""}</div>`).join("")}</div>`,
+            '<h2>เด็คตัวละคร</h2><p>คลิกดูความสามารถ · อัปเลเวลจากตัวละครบนสนาม</p><div class="rule-picks">' +
+              p.reserve
+                .map(
+                  (code) =>
+                    '<button data-rule="inspectCharacter" data-code="' +
+                    code +
+                    '"><img src="' +
+                    ui.card(code).img +
+                    '" alt="' +
+                    ui.esc(ui.card(code).name) +
+                    '"><span>Lv.' +
+                    ui.card(code).level +
+                    "</span></button>",
+                )
+                .join("") +
+              "</div>",
           );
           return;
-        }
+        case "inspectCharacter":
+          if (p.reserve.includes(d.code!))
+            ui.showCard(d.code!, button("reserve", "กลับไปดูเด็คตัวละคร"));
+          return;
+        case "fieldCharacter":
+          if (p.field.includes(d.code!)) showUpgradeDetails(r, d.code!);
+          return;
+        case "inspectUpgrade":
+          if (canUpgradeCard(r, d.code!, ui.card)) showUpgradeDetails(r, d.code!);
+          return;
         case "levelPick": {
           const code = d.code!;
           if (!canUpgradeCard(r, code, ui.card)) return;
@@ -279,115 +300,6 @@ export function setupRulesUI(value: RulesUIContext): void {
             };
           }
           break;
-        case "manualCards":
-          modal(
-            "<h2>จัดการการ์ดตามเอฟเฟกต์</h2><p>ใช้เฉพาะสิ่งที่ข้อความการ์ดระบุ</p>" +
-              (["hand", "trash"] as const)
-                .map(
-                  (zone) =>
-                    "<h3>" +
-                    (zone === "hand" ? "มือ" : "กองทิ้ง") +
-                    '</h3><div class="rule-picks">' +
-                    p[zone]
-                      .map(
-                        (code, i) =>
-                          '<div><img src="' +
-                          ui.card(code).img +
-                          '" alt="' +
-                          ui.esc(ui.card(code).name) +
-                          '">' +
-                          (["hand", "trash", "concerto", "deck"] as const)
-                            .filter((to) => to !== zone)
-                            .map((to) =>
-                              button(
-                                "manualMove",
-                                {
-                                  hand: "ขึ้นมือ",
-                                  trash: "ทิ้ง",
-                                  concerto: "คอนแชร์โต",
-                                  deck: "ใต้เด็ค",
-                                }[to],
-                                'data-from="' +
-                                  zone +
-                                  '" data-to="' +
-                                  to +
-                                  '" data-index="' +
-                                  i +
-                                  '"',
-                              ),
-                            )
-                            .join("") +
-                          "</div>",
-                      )
-                      .join("") +
-                    "</div>",
-                )
-                .join("") +
-              "<h3>ผู้นำ</h3>" +
-              p.field
-                .filter((code) => code !== p.leader)
-                .map((code) =>
-                  button("manualSwitch", ui.card(code).name, 'data-code="' + code + '"'),
-                )
-                .join("") +
-              "<h3>อัปเลเวลจากเอฟเฟกต์</h3>" +
-              p.reserve
-                .map((code) =>
-                  button(
-                    "manualLevel",
-                    ui.card(code).name + " Lv." + ui.card(code).level,
-                    'data-code="' + code + '"',
-                  ),
-                )
-                .join(""),
-          );
-          return;
-        case "manualMove":
-          if (r.choice) {
-            cmd = {
-              type: "answer",
-              id: r.choice.id,
-              actor: r.seat,
-              operation: {
-                type: "move",
-                from: d.from,
-                to: d.to,
-                index: Number(d.index),
-              },
-            };
-          }
-          break;
-        case "manualSwitch":
-        case "manualLevel":
-          if (r.choice) {
-            cmd = {
-              type: "answer",
-              id: r.choice.id,
-              actor: r.seat,
-              operation: {
-                type: d.rule === "manualSwitch" ? "switch" : "level",
-                code: d.code,
-              },
-            };
-          }
-          break;
-        case "adjust": {
-          const seatInput = ui.dialog.querySelector<HTMLSelectElement>("#effectSeat");
-          const typeInput = ui.dialog.querySelector<HTMLSelectElement>("#effectType");
-          const nInput = ui.dialog.querySelector<HTMLInputElement>("#effectN");
-          if (r.choice && seatInput && typeInput && nInput) {
-            cmd = {
-              type: "answer",
-              id: r.choice.id,
-              adjust: {
-                seat: Number(seatInput.value),
-                type: typeInput.value,
-                n: Number(nInput.value),
-              },
-            };
-          }
-          break;
-        }
         case "info":
           modal(
             `<h2>กฎที่ใช้ในห้องนี้</h2><p>${ui.esc(r.ruleNotice)}</p><p>มือเริ่มต้น 5 · มัลลิแกนได้กี่ใบก็ได้ 1 ครั้ง · เทิร์นแรกจั่ว 1 หลังจากนั้นเจ้าของเทิร์นจั่ว 2 · ฟ้าชนฟ้าเสมอ · ชนะสีแดงคอมโบได้ไม่จำกัด · เด็คหมดรีเฟรชจากกองทิ้ง · จบเทิร์นเจ้าของเทิร์นทิ้งจนเหลือ 8</p><a href="https://wwcg.ucp-jp.com/jp/rules" target="_blank" rel="noreferrer">คู่มือทางการ 12 กันยายน 2026</a>${p.flags?.peek ? `<h3>มือฝ่ายตรงข้าม (จากเอฟเฟกต์)</h3><p>${r.players[1 - r.seat].hand.map((code) => ui.esc(ui.card(code).name)).join(" · ")}</p>` : ""}<h3>บันทึก</h3>${r.log
@@ -486,4 +398,43 @@ export function canUpgradeCard(r: PublicRoom, code: string, card: (c: string) =>
   const level = Number(target.level);
   const current = Number(old.level);
   return (level === current || level === current + 1) && p.hand.length >= level;
+}
+
+function showUpgradeDetails(r: PublicRoom, code: string): void {
+  const p = r.players[r.seat],
+    selected = ui.card(code),
+    current = p.field.find((id) => ui.card(id).character === selected.character);
+  if (!current) return;
+  const options = p.reserve.filter(
+    (id) => ui.card(id).character === selected.character && canUpgradeCard(r, id, ui.card),
+  );
+  const controls =
+    '<h3>ดูความสามารถ / เลือกอัปเลเวล</h3><div class="rule-picks">' +
+    [current, ...options]
+      .map(
+        (id) =>
+          '<div><button data-rule="' +
+          (id === current ? "fieldCharacter" : "inspectUpgrade") +
+          '" data-code="' +
+          id +
+          '" aria-pressed="' +
+          (id === code) +
+          '"><img src="' +
+          ui.card(id).img +
+          '" alt="' +
+          ui.esc(ui.card(id).name) +
+          " Lv." +
+          ui.card(id).level +
+          '"></button><span>' +
+          (id === current
+            ? "บนสนาม"
+            : "Lv." + ui.card(id).level + " · ทิ้ง " + ui.card(id).level + " ใบ") +
+          "</span></div>",
+      )
+      .join("") +
+    "</div>" +
+    (options.includes(code)
+      ? button("levelPick", "Up Level · อัปเลเวลเป็นใบนี้", 'data-code="' + code + '"')
+      : "<p>เลือกการ์ดที่อัปได้ใน Main ของคุณ</p>");
+  ui.showCard(code, controls);
 }
