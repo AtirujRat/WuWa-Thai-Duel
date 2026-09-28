@@ -104,6 +104,7 @@ if (typeof document !== "undefined") {
 }
 
 export function sound(kind: string): void {
+  if (kind === "phase" && displayPhase(previous) === "battle") return;
   if (!enabled || (typeof document !== "undefined" && document.hidden)) return;
   const ctx = ensureContext();
   if (!ctx) return;
@@ -117,6 +118,22 @@ export function sound(kind: string): void {
     return;
   }
   if (ctx.state !== "running") return;
+
+  if (kind === "uiClick") {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(520, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + .055);
+    gain.gain.setValueAtTime(.08, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .065);
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + .07);
+    oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+    return;
+  }
 
   if (["draw", "lift", "place", "phase", "card", "handle", "click"].includes(kind)) {
     const promise =
@@ -257,7 +274,7 @@ export function updateEffects(room: PublicRoom | null | undefined, visible: bool
   const currentPhase = displayPhase(room);
   const phaseChanged =
     beforePhase !== currentPhase &&
-    !["setup", "finished"].includes(currentPhase) &&
+    !["setup", "finished", "battle"].includes(currentPhase) &&
     ["draw", "main", "battle", "combo", "end"].includes(currentPhase);
 
   let effect: string | null = null;
@@ -311,4 +328,15 @@ export function updateEffects(room: PublicRoom | null | undefined, visible: bool
     if (phaseChanged) sound("phase");
     else if (effect) sound(effect);
   }
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener("click", event => {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("button");
+    if (!button || button.disabled) return;
+    if (button.dataset.rule === "beginBattle" ||
+        (displayPhase(previous) === "battle" && !button.matches(".art-button, .mat-card, [data-detail]"))) {
+      sound("uiClick");
+    }
+  });
 }

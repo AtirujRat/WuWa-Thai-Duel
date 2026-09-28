@@ -116,13 +116,14 @@ export function rulesBoard(
                             : "สรุปผลการประลอง · 👉 กด [จบเทิร์น →] เพื่อส่งเทิร์นให้บอท"
                           : "";
 
-  return `<section class="battle-shell"><div class="battle-bar"><strong>${r.mode === "bot" ? "บอท · กฎตามเฟส" : "ห้อง " + r.code}</strong><span>${op ? esc(op.name) + " · มือ " + op.handCount + " · ไลฟ์ " + op.hp : "รอเพื่อน"}</span><div>${r.mode === "bot" ? "" : btn("copy", "รหัสห้อง")}<button data-rule="info">กฎ / บันทึก</button>${btn("lobby", "ออกจากสนาม")}</div></div><div class="battle-half opponent-half">${opponentHand(op)}${op ? playmat(op, false, false) : '<div class="waiting-seat">ส่งรหัส ' + r.code + " ให้เพื่อน</div>"}</div><div class="battle-divider">${phaseTrack(r)}<strong>${phaseNames[r.phase || ""] || r.phase} · เทิร์น ${r.turn}</strong><span>${esc(me.name)} · ไลฟ์ ${me.hp} · คอนแชร์โต ${me.table.filter((c) => c.zone === "concerto").length}</span><span>${r.status === "finished" ? (r.winner === null ? "เสมอ" : esc(r.players[r.winner ?? 0]?.name) + " ชนะ") : esc(r.players[r.active]?.name || "") + " เป็นเจ้าของเทิร์น"}</span><div class="battle-actions">${controls}${playing ? btn("surrender", "ยอมแพ้") : ""}</div><span class="round-result">${hint}${r.lastDuel ? " · " + esc(r.lastDuel.reason) : ""}</span></div><div class="battle-half">${playmat(me, true, main || action || defense || combo)}</div><div class="hand-dock"><span class="hand-count">มือ ${me.handCount}</span><div class="hand">${me.hand.map((code, i) => `<article class="card ${(action || defense || combo) && actionUnavailable(r, code, card) ? "action-unavailable" : ""}" title="${esc(action || defense || combo ? actionUnavailable(r, code, card) : "")}" ${(main && !me.used?.charge) || action || defense ? `data-hand-drag="${i}" data-code="${code}"` : ""}><button class="art-button" data-detail="${code}" aria-label="${esc(card(code).name)}">${img(card(code))}</button>${main || action || defense ? `<button data-place-hand="${i}" ${main && me.used?.charge ? "disabled" : ""} class="quick-place">${main ? "ชาร์จ" : "วาง"}</button>` : combo ? `<button data-rule="combo" data-index="${i}" ${actionUnavailable(r, code, card) ? "disabled" : ""} class="quick-place">คอมโบ</button>` : setup && !me.mulligan ? `<label><input type="checkbox" data-mulligan="${i}" ${selectedMulligan.has(i) ? "checked" : ""}> เปลี่ยน</label>` : ""}</article>`).join("")}</div></div></section>`;
+  return `<section class="battle-shell"><div class="battle-bar"><strong>${r.mode === "bot" ? "บอท · กฎตามเฟส" : "ห้อง " + r.code}</strong><span>${op ? esc(op.name) + " · มือ " + op.handCount + " · ไลฟ์ " + op.hp : "รอเพื่อน"}</span><div>${r.mode === "bot" ? "" : btn("copy", "รหัสห้อง")}<button data-rule="info">กฎ / บันทึก</button>${btn("lobby", "ออกจากสนาม")}</div></div><div class="battle-half opponent-half">${op ? lifeBadge(op.name, op.hp, false) : ""}${opponentHand(op)}${op ? playmat(op, false, false) : '<div class="waiting-seat">ส่งรหัส ' + r.code + " ให้เพื่อน</div>"}</div><div class="battle-divider">${phaseTrack(r)}<strong>${phaseNames[r.phase || ""] || r.phase} · เทิร์น ${r.turn}</strong><span>${esc(me.name)} · ไลฟ์ ${me.hp} · คอนแชร์โต ${me.table.filter((c) => c.zone === "concerto").length}</span><span>${r.status === "finished" ? (r.winner === null ? "เสมอ" : esc(r.players[r.winner ?? 0]?.name) + " ชนะ") : esc(r.players[r.active]?.name || "") + " เป็นเจ้าของเทิร์น"}</span><div class="battle-actions">${controls}${playing ? btn("surrender", "ยอมแพ้") : ""}</div><span class="round-result">${hint}${r.lastDuel ? " · " + esc(r.lastDuel.reason) : ""}</span></div><div class="battle-half">${lifeBadge(me.name, me.hp, true)}${playmat(me, true, main || action || defense || combo)}</div><div class="hand-dock"><span class="hand-count">มือ ${me.handCount}</span><div class="hand">${me.hand.map((code, i) => `<article class="card ${(action || defense || combo) && actionUnavailable(r, code, card) ? "action-unavailable" : ""}" title="${esc(action || defense || combo ? actionUnavailable(r, code, card) : "")}" ${(main && !me.used?.charge) || action || defense ? `data-hand-drag="${i}" data-code="${code}"` : ""}><button class="art-button" data-detail="${code}" aria-label="${esc(card(code).name)}">${img(card(code))}</button>${main || action || defense ? `<button data-place-hand="${i}" ${main && me.used?.charge ? "disabled" : ""} class="quick-place">${main ? "ชาร์จ" : "วาง"}</button>` : combo ? `<button data-rule="combo" data-index="${i}" ${actionUnavailable(r, code, card) ? "disabled" : ""} class="quick-place">คอมโบ</button>` : setup && !me.mulligan ? `<label><input type="checkbox" data-mulligan="${i}" ${selectedMulligan.has(i) ? "checked" : ""}> เปลี่ยน</label>` : ""}</article>`).join("")}</div></div></section>`;
 }
 
 const button = (name: string, label: string, extra = "") =>
   `<button data-rule="${name}" ${extra}>${label}</button>`;
 
 function modal(html: string): void {
+  ui.dialog.classList.toggle("level-payment-modal", html.includes("levelDiscard"));
   ui.dialog.innerHTML = button("close", "ปิด", 'class="close"') + html;
   if (!ui.dialog.open) ui.dialog.showModal();
 }
@@ -262,6 +263,9 @@ export function setupRulesUI(value: RulesUIContext): void {
         case "fieldCharacter":
           if (p.field.includes(d.code!)) showUpgradeDetails(r, d.code!);
           return;
+        case "inspectStack":
+          if (Object.values(p.stacks || {}).some(stack => stack.includes(d.code!))) showUpgradeDetails(r, d.code!);
+          return;
         case "inspectUpgrade":
           if (canUpgradeCard(r, d.code!, ui.card)) showUpgradeDetails(r, d.code!);
           return;
@@ -272,11 +276,12 @@ export function setupRulesUI(value: RulesUIContext): void {
             `<h2>อัป ${ui.esc(ui.card(code).name)} Lv.${ui.card(code).level}</h2><p>เลือกทิ้ง ${ui.card(code).level} ใบ</p>${checks(
               p.hand.map((c, i) => ({ value: String(i), code: c })),
               "levelDiscard",
-            )}${button("levelPay", "ยืนยันอัปเลเวล", `data-code="${code}"`)}`,
+            )}${button("levelPay", "ยืนยันอัปเลเวล", `data-code="${code}" disabled`)}`,
           );
           return;
         }
         case "levelPay":
+          if (selected("levelDiscard").length !== Number(ui.card(d.code!).level)) return;
           cmd = {
             type: "level",
             code: d.code,
@@ -410,11 +415,11 @@ function showUpgradeDetails(r: PublicRoom, code: string): void {
   );
   const controls =
     '<h3>ดูความสามารถ / เลือกอัปเลเวล</h3><div class="rule-picks">' +
-    [current, ...options]
+    [...new Set([...(p.stacks?.[current] || [current]), ...options])]
       .map(
         (id) =>
           '<div><button data-rule="' +
-          (id === current ? "fieldCharacter" : "inspectUpgrade") +
+          (id === current ? "fieldCharacter" : options.includes(id) ? "inspectUpgrade" : "inspectStack") +
           '" data-code="' +
           id +
           '" aria-pressed="' +
@@ -428,7 +433,7 @@ function showUpgradeDetails(r: PublicRoom, code: string): void {
           '"></button><span>' +
           (id === current
             ? "บนสนาม"
-            : "Lv." + ui.card(id).level + " · ทิ้ง " + ui.card(id).level + " ใบ") +
+            : options.includes(id) ? "Lv." + ui.card(id).level + " · ทิ้ง " + ui.card(id).level + " ใบ" : "เลเวลก่อนหน้า · Lv." + ui.card(id).level) +
           "</span></div>",
       )
       .join("") +
@@ -437,4 +442,25 @@ function showUpgradeDetails(r: PublicRoom, code: string): void {
       ? button("levelPick", "Up Level · อัปเลเวลเป็นใบนี้", 'data-code="' + code + '"')
       : "<p>เลือกการ์ดที่อัปได้ใน Main ของคุณ</p>");
   ui.showCard(code, controls);
+}
+
+// Card-shaped payment choices; limit selection to the upgrade cost.
+if (typeof document !== "undefined") document.addEventListener("change", event => {
+  const input = event.target as HTMLInputElement;
+  if (input.name !== "levelDiscard") return;
+  const pay = ui.dialog.querySelector<HTMLButtonElement>('[data-rule="levelPay"]');
+  if (!pay) return;
+  const cost = Number(ui.card(pay.dataset.code!).level);
+  if (selected("levelDiscard").length > cost) input.checked = false;
+  const count = selected("levelDiscard").length;
+  for (const option of ui.dialog.querySelectorAll<HTMLInputElement>('input[name="levelDiscard"]')) {
+    option.disabled = !option.checked && count >= cost;
+    option.closest("label")?.classList.toggle("payment-selected", option.checked);
+  }
+  pay.disabled = count !== cost;
+  pay.textContent = "ยืนยันอัปเลเวล · " + count + " / " + cost;
+});
+
+function lifeBadge(name: string, hp: number, mine: boolean): string {
+  return '<aside class="field-life ' + (mine ? 'my-life' : 'enemy-life') + '" aria-label="' + ui.esc(name) + ' ไลฟ์ ' + hp + '"><span class="life-owner">' + (mine ? 'คุณ' : ui.esc(name)) + '</span><div class="life-value"><span aria-hidden="true">♥</span><strong>' + hp + '</strong><progress max="20" value="' + Math.max(0, Math.min(20, hp)) + '" aria-label="ไลฟ์"></progress></div></aside>';
 }

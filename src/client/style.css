@@ -3218,3 +3218,94 @@ body.has-battle-log.log-collapsed {
   .battle-result-modal .duel-side img,.battle-result-modal .unrevealed { height:55px; }
   .battle-result-modal .duel-side strong { display:none; }
 }
+
+/* Keep the card inspector beside dialogs, with space reserved for it. */
+body.has-card-info dialog.battle-result-modal {
+  margin-left: max(12px, calc((100vw - var(--card-info-width) - 920px) / 2));
+  margin-right: calc(var(--card-info-width) + 12px);
+  width: min(920px, calc(100vw - var(--card-info-width) - 24px));
+}
+dialog #card-info { position: fixed; inset: 0 0 0 auto; height: 100dvh; max-height: 100dvh; z-index: 100; text-align: left; }
+.duel-events li { animation: battle-event-enter 350ms both; }
+@keyframes battle-event-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .duel-events li { animation-name: battle-event-fade; } }
+@keyframes battle-event-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Five readable event rows; compact summary leaves room for the hand. */
+.battle-result-modal[open] {
+  grid-template-rows: auto auto auto minmax(270px, 1fr) auto auto;
+  gap: 8px;
+}
+.battle-result-modal .duel-side { display: grid; grid-template-columns: 66px 1fr; gap: 4px 12px; padding: 10px 14px; align-items: center; }
+.battle-result-modal .duel-side img { grid-column: 1; grid-row: 1 / 5; height: 90px; width: 64px; }
+.battle-result-modal .duel-side > p, .battle-result-modal .duel-side > strong, .battle-result-modal .duel-side > progress { grid-column: 2; }
+.battle-result-modal .duel-events { min-height: 270px; background: #0b1520; border: 1px solid #2c4053; border-radius: 10px; scrollbar-gutter: stable; }
+.battle-result-modal .duel-events li { box-sizing: border-box; min-height: 54px; padding: 7px 12px; gap: 10px; font-size: 15px; line-height: 1.4; }
+.battle-result-modal .duel-events img { height: 38px; width: 28px; object-fit: contain; }
+.battle-result-modal .duel-events strong { max-width: 115px; font-size: 12px; color: #dec590; }
+.battle-result-modal .duel-events li:nth-child(even) { background: #142230; }
+.battle-result-modal .result-hand .art { height: clamp(64px, 11dvh, 100px); }
+button { transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease; }
+button:not(:disabled):hover { border-color: #bca778; }
+button:focus-visible { outline: 2px solid #dfc68d; outline-offset: 3px; }
+@media(max-height: 650px) {
+  .battle-view dialog.battle-result-modal { overflow-y: auto; }
+  .battle-result-modal .duel-side img { height: 65px; }
+}
+@media(prefers-reduced-motion: reduce) { button { transition: none; } }
+
+/* Battle outcome log: five larger rows with card artwork. */
+.battle-result-modal[open] { grid-template-rows: auto auto auto minmax(370px, 1fr) auto auto; }
+.battle-result-modal .duel-events { min-height: 370px; }
+.battle-result-modal .duel-events li { min-height: 74px; padding: 6px 14px; gap: 14px; font-size: 18px; line-height: 1.35; }
+.battle-result-modal .duel-events .event-art { display: flex; flex: 0 0 48px; gap: 4px; align-items: center; justify-content: center; }
+.battle-result-modal .duel-events .event-art img { height: 60px; width: 43px; border-radius: 5px; object-fit: contain; cursor: help; }
+.event-copy { display: grid; gap: 3px; }
+.event-copy small { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: #dec590; }
+.event-symbol { color: #dec590; font-size: 26px; }
+.battle-result-modal .duel-events li:first-child { background: #302b20; border-left: 3px solid #dec590; }
+.battle-view dialog.battle-result-modal { height: min(900px, 96dvh); overflow-y: auto; }
+
+/* Center all dialogs while keeping the persistent inspector on the right. */
+body.has-card-info dialog, body.battle-view.has-card-info dialog.battle-result-modal {
+  position: fixed; inset: 0; margin: auto;
+  max-width: calc(100vw - var(--card-info-width) - 32px);
+  max-height: 94dvh;
+}
+.rule-picks label:has(input[name="levelDiscard"]) { position: relative; cursor: pointer; border: 2px solid #31485f; border-radius: 10px; padding: 9px; transition: border-color .18s, background-color .18s; }
+.rule-picks input[name="levelDiscard"] { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.rule-picks label:has(input[name="levelDiscard"]:checked) { border-color: #dec590; background: #373325; box-shadow: 0 0 0 2px #dec59030; }
+.rule-picks label:has(input[name="levelDiscard"]:focus-visible) { outline: 2px solid #dec590; outline-offset: 3px; }
+.rule-picks label:has(input[name="levelDiscard"]:disabled) { opacity: .5; cursor: default; }
+.char-stack-btn { position: relative; overflow: visible; isolation: isolate; }
+.char-stack-btn .stack-underlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform: translate(calc(-1 * var(--stack-offset)), calc(-1 * var(--stack-offset))); z-index: -1; border-radius: 6px; }
+
+/* Automatic effect receipts stay centered above the battlefield and dialogs. */
+.effect-notifications { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); width: min(460px, 86vw); max-width: 460px; padding: 20px; border-color: #dec590; box-shadow: 0 16px 70px #000b; }
+.effect-notifications img { width: 88px; }
+.effect-notifications p { font-size: 18px; }
+@keyframes effect-arrive { from { opacity: 0; } to { opacity: 1; } }
+
+/* Restore bounded dialog sizing instead of inheriting a viewport-wide width. */
+body.has-card-info dialog:not(.battle-result-modal) {
+  box-sizing: border-box; width: min(900px, calc(100vw - 40px));
+  max-width: min(900px, calc(100vw - 40px)); margin: auto; inset: 0;
+}
+body.has-card-info dialog.level-payment-modal {
+  width: fit-content; min-width: min(360px, calc(100vw - 40px));
+  max-width: min(820px, calc(100vw - 40px)); max-height: 85dvh;
+}
+.level-payment-modal .rule-picks { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.level-payment-modal .rule-picks label { flex: 0 0 104px; box-sizing: border-box; }
+.level-payment-modal .rule-picks img { width: 80px; height: 112px; object-fit: contain; }
+.battle-half { position: relative; }
+.field-life { position: absolute; right: 10px; z-index: 4; width: 112px; pointer-events: none; }
+.field-life.enemy-life { top: 4px; }
+.field-life.my-life { bottom: 4px; }
+.life-owner { display: block; text-align: right; color: #eaf3ff; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
+.life-value { display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 5px 9px; border: 1px solid #395367; background: #0a1525f2; border-radius: 10px; box-shadow: 0 5px 15px #0005; }
+.life-value > span { color: #42dc8a; font-size: 25px; text-shadow: 0 0 9px #42dc8a66; }
+.life-value strong { text-align: right; font-size: 29px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.life-value progress { grid-column: 1 / -1; width: 100%; height: 6px; margin-top: 4px; border: none; border-radius: 6px; overflow: hidden; }
+.life-value progress::-webkit-progress-bar { background: #213747; }
+.life-value progress::-webkit-progress-value { background: #42ce85; transition: width .25s ease; }
