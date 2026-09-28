@@ -17,7 +17,15 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100dvh;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(90deg, rgba(7, 14, 24, .84), rgba(7, 14, 24, .48)),
+    url("/images/site-background.jpg");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--text);
   font:
     16px/1.7 "Noto Sans Thai",

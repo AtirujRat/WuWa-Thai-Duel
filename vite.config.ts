@@ -18,6 +18,14 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:4174",
         changeOrigin: true,
+        configure(proxy) {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            // Only rewrite same-origin development requests.
+            if (req.headers.origin === "http://" + req.headers.host) {
+              proxyReq.setHeader("Origin", "http://localhost:4174");
+            }
+          });
+        },
       },
     },
   },
