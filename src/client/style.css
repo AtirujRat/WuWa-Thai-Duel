@@ -3309,3 +3309,21 @@ body.has-card-info dialog.level-payment-modal {
 .life-value progress { grid-column: 1 / -1; width: 100%; height: 6px; margin-top: 4px; border: none; border-radius: 6px; overflow: hidden; }
 .life-value progress::-webkit-progress-bar { background: #213747; }
 .life-value progress::-webkit-progress-value { background: #42ce85; transition: width .25s ease; }
+
+/* Life rails reserve their own space outside all card zones. */
+.battle-shell.life-rail-layout { position: relative; padding-left: 124px; padding-right: 124px; box-sizing: border-box; }
+.life-rail-layout > .field-life.enemy-life { top: 50px; right: 4px; bottom: auto; }
+.life-rail-layout > .field-life.my-life { bottom: 24px; left: 4px; right: auto; }
+.turn-banner { display: flex; align-items: center; gap: 16px; padding: 8px 18px; border: 1px solid #6586a6; border-radius: 10px; background: #172b40; box-shadow: 0 0 18px #568ac31a; }
+.turn-banner > span { font-size: 16px; color: #cedceb; white-space: nowrap; }
+.turn-banner strong { font-size: 19px; color: #fff; }
+.turn-banner.your-turn { border-color: #dfc68d; background: #342d20; box-shadow: 0 0 18px #dfc68d30; }
+.turn-banner.your-turn strong { color: #ffe3a4; }
+.life-rail-layout .battle-divider { gap: 12px; padding: 8px 0; }
+@media(max-width: 900px) {
+  .battle-shell.life-rail-layout { padding-left: 86px; padding-right: 86px; }
+  .life-rail-layout > .field-life { width: 78px; }
+  .life-rail-layout .life-value strong { font-size: 24px; }
+  .turn-banner { padding: 6px 10px; gap: 8px; }
+  .turn-banner strong { font-size: 16px; }
+}
