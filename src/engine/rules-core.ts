@@ -1361,6 +1361,16 @@ export class Game {
     const optional = (label: string, inner: GameOp[]) => ops.push(...inner);
     const isLeader = this.leader(s, code);
 
+    if (code === "BP01-010") {
+      if (isLeader && own?.color === "เขียว") {
+        if (e === "confront") add("draw", 1, { reveal: true });
+        if (e === "judgment" && won) add("heal", 1);
+      }
+      r.queue ??= [];
+      r.queue.unshift(...ops.map(op => ({ ...op, source: code })));
+      return;
+    }
+
     if (code === "BP01-069") {
       if (e === "judgment" && won) add("pursuit", 1);
       if (e === "battleEnd" && this.c(p.leader).character === "หยางหยาง" && this.energy(s).length)

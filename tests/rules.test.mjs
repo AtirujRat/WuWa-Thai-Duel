@@ -405,3 +405,23 @@ test("Feather Dance resolves pursuit and paid return without confirmation", () =
   assert.ok(r.players[0].trash.includes("SD01-007"));
   assert.ok(r.log.some((x) => x.notice && x.source === "BP01-069"));
 });
+
+test("Shorekeeper green leader effects resolve automatically and emit receipts", () => {
+  for (const [leader, green, won] of [[true,true,true],[true,true,false],[false,true,true],[true,false,true]]) {
+    const r = start(setup());
+    const p = r.players[0];
+    r.phase = "battle";
+    if (leader) { p.leader = "BP01-010"; p.stacks[p.leader] = [p.leader]; }
+    r.duel = [cards.find(c => c.type === "action" && c.color === (green ? "เขียว" : "แดง")).code, null];
+    r.lastDuel = {winner: won ? 0 : 1};
+    p.hp = 15;
+    p.hand.push("SD01-007");
+    const before = p.hand.length;
+    r.queue = ["confront", "judgment"].map(event => ({type:"effect", seat:0, source:"BP01-010", event}));
+    send(r, 0, {type:"tablePlace", index:p.hand.length-1, code:"SD01-007", zone:"action", x:0, y:0});
+    assert.equal(p.hand.length, before - 1 + (leader && green ? 1 : 0));
+    assert.equal(p.hp, 15 + (leader && green && won ? 1 : 0));
+    assert.equal(r.choice, null);
+    assert.equal(r.log.some(x => x.notice && x.source === "BP01-010"), leader && green);
+  }
+});

@@ -1,3 +1,5 @@
+import { installUiMotion } from "./ui-motion.ts";
+installUiMotion();
 import { updateBattlePresentation } from "./battle-presentation.ts";
 import { updateBattleLog } from "./battle-log.ts";
 import { formatCardText } from "./card-text.ts";
@@ -61,7 +63,7 @@ function playmat(p: PublicPlayer, mine: boolean, live: boolean): string {
       if (!c) return "";
       return `<div class="character-slot ${isLeader ? "leader-slot" : ""} ${hasStack ? "has-stack" : ""}">
       <button ${mine && room?.rulesVersion ? `data-rule="fieldCharacter" data-code="${code}"` : `data-char-slot="${code}" data-seat="${seatIdx}"`} class="art-button char-stack-btn" aria-label="${isLeader ? "ผู้นำ" : "แบ็ค"} ${esc(c.name)} Lv.${c.level} (กดดูการ์ดสืบทอด)">
-        ${img(c)}
+        ${hasStack ? stack.slice(0, -1).map((id, i) => `<img class="stack-underlay" src="${card(id)?.img}" alt="" style="--stack-offset:${(stack.length - 1 - i) * 5}px">`).join("") : ""}${img(c)}
         ${hasStack ? `<span class="stack-indicator" title="สืบทอดความสามารถ ${stack.length} การ์ด">🔗 ซ้อน ${stack.length} ใบ</span>` : ""}
       </button>
       <span>${isLeader ? "👑 ผู้นำ" : "แบ็ค"} · Lv.${c.level}</span>
@@ -839,7 +841,6 @@ function refreshDeck(): void {
 function detail(code: string, extra = ""): void {
   const c = card(code);
   if (!c) return;
-  if (dialog.open) dialog.close();
   const panel = $("#card-info");
   if (!panel) return;
   panel.hidden = false;
@@ -851,7 +852,7 @@ function detail(code: string, extra = ""): void {
     .reduce((s, item) => s + (deck.entries[item.code] || 0), 0);
   const isMax = c.type === "character" ? inDeck >= 1 : inDeck >= 3 || actionCount >= 40;
 
-  panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong><button data-do="closeCardInfo" aria-label="ปิดรายละเอียดการ์ด">✕</button></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${(c.tags || []).map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${(c.variants || []).map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${tab !== "decks" ? "" : c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
+  panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${(c.tags || []).map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${(c.variants || []).map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${tab !== "decks" ? "" : c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
   panel.querySelector(".card-info-content")!.scrollTop = 0;
 }
 
@@ -1088,8 +1089,8 @@ document.addEventListener("click", async (e) => {
     }
     if (doIt === "closeCardInfo") {
       const cardInfo = $("#card-info");
-      if (cardInfo) cardInfo.hidden = true;
-      document.body.classList.remove("has-card-info");
+      if (cardInfo) cardInfo.hidden = false;
+      document.body.classList.add("has-card-info");
       return;
     }
     if (doIt === "close") {
@@ -1476,7 +1477,18 @@ if ((document as any).modelContext?.registerTool) {
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !dialog.open) {
     const cardInfo = $("#card-info");
-    if (cardInfo) cardInfo.hidden = true;
-    document.body.classList.remove("has-card-info");
+    if (cardInfo) cardInfo.hidden = false;
+    document.body.classList.add("has-card-info");
   }
 });
+
+// Keep one inspector visible, including inside the browser's modal top layer.
+const inspector = document.querySelector<HTMLElement>("#card-info")!;
+inspector.hidden = false;
+if (!inspector.innerHTML) inspector.innerHTML = '<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong></div><p class="muted">ชี้เมาส์ที่การ์ดเพื่อดูความสามารถ</p>';
+document.body.classList.add("has-card-info");
+new MutationObserver(() => {
+  const host = [...document.querySelectorAll<HTMLDialogElement>("dialog[open]")].at(-1) || document.body;
+  if (inspector.parentElement !== host) host.append(inspector);
+  inspector.hidden = false;
+}).observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:["open"]});
