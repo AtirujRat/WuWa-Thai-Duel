@@ -376,7 +376,6 @@ function toggleCharacter(charId: string): void {
       const c = card(code);
       if (c && c.type === "character" && c.character === def.th) delete deck.entries[code];
     }
-    toast("ปลด " + def.name + " ออกจากเด็ค");
   } else {
     if (selected.length >= 3) {
       toast("เลือกได้สูงสุด 3 ตัวละคร (ปลดตัวเดิมออกก่อน)");
@@ -397,15 +396,6 @@ function toggleCharacter(charId: string): void {
         count++;
       }
     if (!count) deck.entries[def.lv0] = 1;
-    toast(
-      count
-        ? "เลือก " +
-            def.name +
-            " แล้ว · ใส่การ์ดตัวละครให้ " +
-            count +
-            " ใบ (Lv.0 ×1, Lv.1 ×2, Lv.2 ×2)"
-        : "เลือก " + def.name + " แล้ว",
-    );
   }
   refreshDeck();
 }
@@ -435,8 +425,14 @@ async function api<T = any>(url: string, data?: unknown, auth = ""): Promise<T> 
     },
     ...(data === undefined ? {} : { body: JSON.stringify(data) }),
   });
-  const j = await r.json();
-  if (!r.ok) throw Error(j.error || "ติดต่อเซิร์ฟเวอร์ไม่ได้");
+  const body = await r.text();
+  let j;
+  try {
+    j = JSON.parse(body);
+  } catch {
+    throw Error("ติดต่อระบบเกมไม่ได้ กรุณาเปิด START-DEMO.cmd แล้วลองอีกครั้ง (HTTP " + r.status + ")");
+  }
+  if (!r.ok) throw Error(j?.error || "ติดต่อเซิร์ฟเวอร์ไม่ได้");
   return j;
 }
 
@@ -983,7 +979,6 @@ function add(code: string, delta: number): void {
   if (n <= 0) delete deck.entries[code];
   else deck.entries[code] = n;
   refreshDeck();
-  if (delta > 0) toast("เพิ่ม " + c.name + " แล้ว");
 }
 
 function exportDeck(): void {
@@ -1118,7 +1113,6 @@ document.addEventListener("click", async (e) => {
       const p = presetDeck(doIt === "preset1" ? "SD01" : "SD02", cards);
       deck = { id: "", ...p };
       render();
-      toast("โหลดเด็คฝึกแล้ว");
       return;
     }
     if (doIt === "new") {
@@ -1153,7 +1147,6 @@ document.addEventListener("click", async (e) => {
       const p = presetDeck(t.dataset.preset!, cards);
       deck = { id: "", ...p };
       render();
-      toast("โหลดเด็คฝึก " + t.dataset.preset + " แล้ว");
       return;
     }
     if (doIt === "selectSaved") {
@@ -1163,7 +1156,6 @@ document.addEventListener("click", async (e) => {
       if (dialog.open) dialog.close();
       if (tab === "play") inLobby = true;
       render();
-      toast("เปิดเด็ค " + d.name + " แล้ว");
       return;
     }
     if (doIt === "editDeck") {
@@ -1173,7 +1165,6 @@ document.addEventListener("click", async (e) => {
       tab = "decks";
       if (dialog.open) dialog.close();
       render();
-      toast("เปิดเด็ค " + d.name + " เพื่อแก้ไข");
       return;
     }
     if (doIt === "delDeck") {
