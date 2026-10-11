@@ -1,6 +1,10 @@
-import { animate } from "motion/mini";
+import { animate, stagger } from "framer-motion/dom";
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const closing = new WeakMap<HTMLDialogElement, object>();
+export function cancelDialogClose(dialog: HTMLDialogElement): void {
+  closing.delete(dialog);
+  dialog.style.opacity = "1";
+}
 export function openMotionDialog(dialog: HTMLDialogElement): void {
   closing.delete(dialog);
   if (!dialog.open) dialog.showModal();
@@ -36,4 +40,14 @@ export function installUiMotion(): void {
       }
     }
   }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open"] });
+}
+
+let lastView = "";
+export function animatePage(root: HTMLElement, view: string): void {
+  if (view === lastView) return;
+  lastView = view;
+  if (reduced()) return;
+  animate(root, { opacity: [0, 1], y: [10, 0] }, { duration: .26, ease: "easeOut" });
+  const tiles = [...root.querySelectorAll<HTMLElement>(".deck-selection-grid > *, .deck-section, .friend-lobby, .bot-lobby")].slice(0, 12);
+  if (tiles.length) animate(tiles, { opacity: [0, 1], y: [8, 0] }, { duration: .24, delay: stagger(.035), ease: "easeOut" });
 }
