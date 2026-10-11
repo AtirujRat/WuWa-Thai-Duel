@@ -56,7 +56,7 @@ export function initRules(r: GameRoom): void {
   r.choice = null;
   r.lastWinner = null;
   r.ruleNotice =
-    "กฎพื้นฐานอัตโนมัติ · เอฟเฟกต์ SD01/SD02 และ Lv.0 ทีมเริ่มต้นอัตโนมัติ · เอฟเฟกต์อื่นใช้แผงจัดการและยืนยัน";
+    "เอฟเฟกต์การ์ดประมวลผลอัตโนมัติ · เลือกการ์ดหรือเป้าหมายเมื่อความสามารถต้องใช้ตัวเลือก";
   for (const p of r.players) {
     p.ready = false;
     p.table = [];
@@ -287,7 +287,7 @@ export class Game {
       Number(c.fee) +
         ((p.flags?.costBonus as number) || 0) +
         (c.color === "แดง" && p.flags?.redTaxTurn === this.r.turn ? 1 : 0) -
-        (code === "BP01-062" && this.r.previousWinner === s ? 1 : 0),
+        (code === "BP01-062" && this.advantage(s) ? 1 : 0),
     );
   }
 
@@ -395,6 +395,7 @@ export class Game {
       p.locked = false;
       p.payment = [];
       p.flags = {
+        entered: p.flags?.entered || {},
         damageTaken: false,
         heals: 0,
         encoreBasic: false,
@@ -449,14 +450,14 @@ export class Game {
     this.enqueue({ type: "cleanup" });
   }
 
-  upgrade(s: number, code: string, free = false, indices: number[] = []): void {
+  upgrade(s: number, code: string, free = false, indices: number[] = [], jump = false): void {
     const p = this.p(s);
     const c = this.c(code);
     const old = p.field.find((x) => this.c(x).character === c?.character);
     assert(old && p.reserve.includes(code), "ไม่พบตัวละคร");
     assert(free || code !== "BP01-011", "ตัวละครนี้อัปเลเวลด้วยเอฟเฟกต์เท่านั้น");
     assert(
-      Number(c.level) === Number(this.c(old).level) ||
+      (free && jump) || Number(c.level) === Number(this.c(old).level) ||
         Number(c.level) === Number(this.c(old).level) + 1,
       "อัปได้เลเวลเดิมหรือเพิ่ม 1 เท่านั้น",
     );
@@ -584,7 +585,7 @@ export class Game {
     if (cmd.type === "tableMove") {
       const c = p.table.find((x) => x.id === cmd.id);
       assert(c && c.zone === cmd.zone, "ย้ายตำแหน่งได้ในเขตเดิมเท่านั้น");
-      this.position(c, cmd as unknown as { x: number; y: number });
+      assert(c.zone !== "action", "แอ็กชันที่วางแล้วไม่สามารถย้ายได้"); this.position(c, cmd as unknown as { x: number; y: number });
       return;
     }
 
@@ -635,7 +636,7 @@ export class Game {
         y: (cmd.y as number) ?? 0.5,
         faceDown: zone === "action",
       };
-      this.position(c, cmd as unknown as { x: number; y: number });
+      if (c.zone === "action") { c.x = 0.5; c.y = 0.5; } else this.position(c, cmd as unknown as { x: number; y: number });
       p.hand.splice(idx, 1);
       p.table.push(c);
       this.log(
@@ -762,6 +763,13 @@ export class Game {
     const p = this.p(s);
     const c = this.c(code);
     let n = Number(c.damage) || 0;
+    if (code === "BP01-055" && p.hp > this.p(1-s).hp) n++;
+    const played = p.table.filter(x => x.zone === "action" && !x.faceDown && x.code);
+    if (this.all(s).some(x => x === "BP01-015" && this.leader(s, x)) && c.character === this.c("BP01-015").character && this.hasTag(code, "基本攻撃") && played.find(x => x.code && this.c(x.code).character === c.character && this.hasTag(x.code, "基本攻撃")) === played.at(-1)) n += 2;
+    for (const [echo, set, tag] of [["BP01-034","山を轟かせる崩火","焦熱"],["BP01-036","夜にこびり付く白霜","凝縮"],["BP01-038","谷を突き抜ける長風","気動"],["BP01-040","二度と輝かない沈日","消滅"],["BP01-042","闇を取り払う浮星","回折"]]) {
+      const energy = this.energy(s).flatMap(x => x.code ? [x.code] : []);
+      if (energy.includes(echo) && new Set(energy.filter(x => this.hasTag(x, set))).size >= 2 && this.hasTag(code, tag) && played.find(x => x.code && this.hasTag(x.code, tag)) === played.at(-1)) n++;
+    }
     for (const source of this.all(s)) {
       if (
         source === "SD01-005" &&
@@ -782,7 +790,7 @@ export class Game {
     return Math.max(0, n + (Number(p.flags?.bonusDamage) || 0));
   }
 
-  damage(s: number, n: number, comboSource?: string): void {
+  damage(s: number, n: number, comboSource?: string, attackSource?: string): void {
     const p = this.p(s);
     n = Math.max(0, n);
     for (const code of this.all(s)) {
@@ -800,7 +808,26 @@ export class Game {
         (comboSource ? "คอมโบ " + this.c(comboSource).name + " · " : "") + p.name + " · ไลฟ์ -" + n,
         { source: comboSource },
       );
+    if (n > 0) {
+      const source = comboSource || attackSource;
+      if (source) this.damageEffects(1-s, source);
+    }
     this.check();
+  }
+
+  damageEffects(s: number, source: string): void {
+    const p = this.p(s), target = this.p(1-s), n = Number(source.slice(-3));
+    const ops: GameOp[] = [];
+    if (source === "BP01-060" && this.c(p.leader).character === this.c(source).character) ops.push(this.op("draw", s, 1, {source}));
+    if (source.startsWith("BP01-") && this.advantage(s)) {
+      if (n === 35) for (let i=0, count=Math.floor(target.hand.length/4); i<count && target.hand.length; i++) target.trash.push(target.hand.splice(randomInt(target.hand.length),1)[0]);
+      if (n === 37) ops.push(this.op("selectEnergy", s, 1, {target:1-s, source}));
+      if (n === 39 && target.hand.length) target.deck.push(target.hand.splice(randomInt(target.hand.length),1)[0]);
+      if (n === 41) target.trash.push(...target.deck.splice(0,3));
+      if (n === 43) ops.push(this.op("selectCard", s, 0, {target:1-s, from:"trash",to:"bottom",source, remaining:2}));
+      if ([35,39,41].includes(n)) this.log(target.name + " · เอฟเฟกต์ " + this.c(source).name + " ย้ายการ์ดตามกฎ", {source,notice:true});
+    }
+    this.r.queue ??= []; this.r.queue.unshift(...ops);
   }
 
   drainQueue(): void {
@@ -959,6 +986,58 @@ export class Game {
     const p = this.p(seat);
 
     switch (o.type) {
+      case "selectCard": {
+        const target = this.p(Number(o.target ?? seat));
+        const from = String(o.from), list = from === "reserve" ? target.reserve : from === "deck" ? target.deck : target.trash;
+        const options = list.map((code, i) => ({ code, i })).filter(({code}) => {
+          const c = this.c(code);
+          if (o.character && c.character !== o.character) return false;
+          if (o.color && c.color !== o.color) return false;
+          if (o.tag && !this.hasTag(code, String(o.tag))) return false;
+          if (o.excludeTag && this.hasTag(code, String(o.excludeTag))) return false;
+          if (o.anyTags && !(o.anyTags as string[]).some(tag => this.hasTag(code, tag))) return false;
+          if (o.nameJp && c.nameJp !== o.nameJp) return false;
+          if (o.to === "upgrade") {
+            const old = p.field.find(x => this.c(x).character === c.character);
+            if (!old) return false;
+            if (o.level !== undefined && Number(c.level) !== o.level) return false;
+            if (!o.jump && ![Number(this.c(old).level), Number(this.c(old).level)+1].includes(Number(c.level))) return false;
+          }
+          return true;
+        }).map(({code, i}) => ({ value: String(i), code, label: this.c(code).name + (from === "reserve" ? " Lv." + this.c(code).level : "") }));
+        const optional = Number(o.remaining || 0) > 0 || (o.source && this.c(o.source).info.includes("もよい") && o.to !== "upgrade");
+        if (options.length) this.request("selectCard", seat, o.to === "upgrade" ? "เลือกการ์ดอัปเลเวล" : "เลือกการ์ดตามเอฟเฟกต์", optional ? [...options, {value:"skip",code:"",label:"ข้ามการเลือก"}] : options, { from, to: o.to, jump: o.jump, source: o.source, target:o.target, remaining:o.remaining, optional });
+        else if (from === "deck") shuffle(target.deck);
+        break;
+      }
+      case "selectEnergy": {
+        const target = Number(o.target ?? seat);
+        const options = this.energy(target).filter(x => x.code).map(x => ({value:x.id,code:x.code!,label:this.c(x.code!).name}));
+        if (options.length) this.request("selectEnergy", seat, "เลือกคอนแชร์โตที่จะย้ายไปกองทิ้ง", options, {target,source:o.source});
+        break;
+      }
+      case "switchTo": {
+        const target = p.field.find(code => this.c(code).character === o.character);
+        if (target && target !== p.leader && !p.flags?.switchLock) this.switch(seat, target);
+        break;
+      }
+      case "unstack": {
+        const top = p.field.find(code => p.stacks[code]?.includes(o.source!));
+        if (!top) break;
+        const stack = p.stacks[top], index = stack.indexOf(o.source!);
+        if (stack.length <= 1) break;
+        stack.splice(index, 1); p.reserve.push(o.source!);
+        const next = stack.at(-1)!;
+        if (next !== top) { delete p.stacks[top]; p.stacks[next] = stack; p.field[p.field.indexOf(top)] = next; if (p.leader === top) p.leader = next; }
+        this.log(p.name + " · คืน " + this.c(o.source!).name + " ไปเด็คตัวละคร", {source:o.source, notice:true});
+        break;
+      }
+      case "revealCharacter": {
+        const revealed = p.deck.splice(0, o.n || 0);
+        for (const code of revealed) (this.c(code).character === o.character ? p.hand : p.trash).push(code);
+        this.log(p.name + " · เปิด " + revealed.map(code => this.c(code).name).join(" / ") + " · รับการ์ดตัวละครที่ตรงเงื่อนไข ที่เหลือไปกองทิ้ง", {source:o.source, notice:true});
+        break;
+      }
       case "drawPhase":
         if (r.status === "playing") r.phase = "draw";
         break;
@@ -985,6 +1064,7 @@ export class Game {
       case "heal":
         p.hp += o.n ?? 0;
         this.log(p.name + " · ฟื้นไลฟ์ " + o.n);
+        if ((o.n ?? 0) > 0) for (const source of this.all(seat)) this.enqueue({type:"effect",event:"heal",seat,source});
         break;
       case "pursuit":
         p.flags ??= {};
@@ -1017,7 +1097,7 @@ export class Game {
             seat,
             "เลือกทิ้งการ์ด " + n + " ใบ",
             p.hand.map((code, i) => ({ value: String(i), code, label: this.c(code).name })),
-            { count: n, after: o.after || [] },
+            { count: n, after: o.after || [], optional: o.optional },
           );
         }
         break;
@@ -1032,6 +1112,7 @@ export class Game {
             after: o.after || [],
             expected: o.expected,
             bonus: o.bonus,
+            strictExpected: o.strictExpected,
           });
         }
         break;
@@ -1119,7 +1200,7 @@ export class Game {
           if (cardCode) {
             const n = this.baseDamage(s, cardCode);
             if (r.lastDuel) r.lastDuel.damage = n;
-            this.damage(1 - s, n);
+            this.damage(1 - s, n, undefined, cardCode);
             r.comboSeat = s;
             r.comboLeft =
               this.c(cardCode).color === "แดง" ? -1 : (this.p(s).flags?.pursuit as number) || 0;
@@ -1155,10 +1236,9 @@ export class Game {
         }
         break;
       case "manual":
-        this.log("ยังไม่รองรับเอฟเฟกต์นี้ · ไม่ได้เปลี่ยนสถานะเกม", {
-          source: o.source,
-          notice: true,
-        });
+        // Saved queues from older builds use manual operations for these cards.
+        if (o.source && /^(BP01|SD01|SD02)-/.test(o.source)) this.effect({ ...o, type: "effect" });
+        else throw new Error("ไม่มีตัวจัดการเอฟเฟกต์สำหรับ " + o.source);
         break;
     }
   }
@@ -1171,6 +1251,7 @@ export class Game {
     const v = cmd.value;
 
     assert(!cmd.adjust && !cmd.operation, "ไม่อนุญาตให้ปรับค่าสถานะหรือย้ายการ์ดเองจากเอฟเฟกต์");
+    if (q.type === "discard" && q.optional && v === "skip") { r.choice = null; return; }
     if (q.type === "discard") {
       this.discard(q.seat, cmd.indices as number[], q.count as number);
       if (q.source)
@@ -1197,10 +1278,38 @@ export class Game {
     if (q.type === "drawUpTo") {
       this.takeTop(q.seat, Number(v), "hand", true);
     }
+    if (q.type === "selectCard") {
+      if (v === "skip" && q.optional) return;
+      const target = this.p(Number(q.target ?? q.seat));
+      const list = q.from === "reserve" ? target.reserve : q.from === "deck" ? target.deck : target.trash;
+      const index = Number(v), code = list[index];
+      assert(Number.isInteger(index) && code, "ไม่พบการ์ดตามเอฟเฟกต์");
+      if (q.to === "upgrade") {
+        this.upgrade(q.seat, code, true, [], !!q.jump);
+        Object.assign(r.log.at(-1)!, {source:q.source, notice:true});
+      }
+      else {
+        list.splice(index, 1);
+        if (q.to === "concerto") p.table.push({id:uid(), code, zone:"concerto", faceDown:false, x:.5, y:.5});
+        else if (q.to === "bottom") target.deck.push(code);
+        else target.hand.push(code);
+        if (q.from === "deck") shuffle(target.deck);
+        this.log(p.name + " · " + (q.to === "concerto" ? "นำไปคอนแชร์โต " : "นำขึ้นมือ ") + this.c(code).name, {source:q.source as string, notice:true});
+      }
+      if (Number(q.remaining || 0) > 1) r.queue.unshift(this.op("selectCard",q.seat,0,{from:q.from,to:q.to,target:q.target,remaining:Number(q.remaining)-1,source:q.source}));
+    }
+    if (q.type === "selectEnergy") {
+      const target = this.p(Number(q.target ?? q.seat));
+      const index = target.table.findIndex(x => x.id === v && x.zone === "concerto");
+      assert(index >= 0, "ไม่พบคอนแชร์โต");
+      const item = target.table.splice(index,1)[0];
+      if (item.code) target.trash.push(item.code);
+      this.log(target.name + " · คอนแชร์โตไปกองทิ้ง", {source:q.source as string, notice:true});
+    }
     if (q.type === "switch") {
       const old = this.c(p.leader).character;
       this.switch(q.seat, v as string);
-      if (q.expected && (old === q.expected || this.c(v as string).character === q.expected)) {
+      if (q.expected && ((!q.strictExpected && old === q.expected) || this.c(v as string).character === q.expected)) {
         r.queue.unshift(...((q.bonus as GameOp[]) || []));
       }
       r.queue.unshift(...((q.after as GameOp[]) || []));
@@ -1348,6 +1457,15 @@ export class Game {
   }
 
   effect(o: GameOp): void {
+    if (o.event === "combo" && o.source && this.hasTag(o.source, "変奏スキル")) {
+      const seat = o.seat ?? this.r.active, p = this.p(seat);
+      if (Number(p.flags?.introDraw || 0) > 0) {
+        p.flags!.introDraw = Number(p.flags!.introDraw)-1;
+        this.r.queue ??= [];
+        this.r.queue.unshift(this.op("draw", seat, 1, {source:"BP01-057"}));
+      }
+    }
+    if (o.source?.startsWith("BP01-") && this.boosterEffect(o)) return;
     const { seat: s = this.r.active, source: code = "", event: e = "" } = o;
     const p = this.p(s);
     const r = this.r;
@@ -1498,6 +1616,84 @@ export class Game {
     });
     r.queue.unshift(...ops.map(withSource));
   }
+
+  boosterEffect(o: GameOp): boolean {
+    const s = o.seat ?? this.r.active, code = o.source!, e = o.event;
+    const p = this.p(s), r = this.r, c = this.c(code);
+    const n = Number(code.slice(-3)), leader = this.leader(s, code);
+    const own = r.duel?.[s] ? this.c(r.duel[s]!) : null;
+    const other = r.duel?.[1 - s] ? this.c(r.duel[1 - s]!) : null;
+    const won = r.lastDuel?.winner === s, lost = r.lastDuel?.winner === 1 - s;
+    const ops: GameOp[] = [];
+    const add = (type: string, amount = 0, extra: Record<string, unknown> = {}) => ops.push(this.op(type, s, amount, { source: code, ...extra }));
+    const recover = (extra: Record<string, unknown> = {}) => add("selectCard", 0, { from: "trash", to: "hand", ...extra });
+    const upgrade = (character = c.character) => add("selectCard", 0, { from: "reserve", to: "upgrade", character });
+    const swap = (expected?: string, bonus: GameOp[] = []) => add("switch", 0, { expected, bonus, strictExpected: true });
+    const enter = e === "enter" || e === "level";
+    if (c.type === "character") {
+      if ([1, 2].includes(n) && e === "level") add("unstack");
+      if (n === 3 && enter) recover({ tag: "通常攻撃" });
+      if (n === 4 && leader && e === "judgment" && lost && own?.color === "แดง" && other?.color === "น้ำเงิน") add("draw", 1, { reveal: true });
+      if (n === 5 && leader && e === "judgment" && won) recover({ tag: "通常攻撃" });
+      if (n === 6 && e === "heal" && Number(p.flags?.heals || 0) < 2) { p.flags ??= {}; p.flags.heals = Number(p.flags.heals || 0) + 1; add("draw", 1); }
+      if (n === 7 && leader && e === "battleStart" && s === r.active && p.hand.length <= 4) add("draw", 5 - p.hand.length);
+      if (n === 8 && e === "switch") { add("draw", 1); add("discard", 1); }
+      if (n === 9 && enter) recover({ tag: "変奏スキル" });
+      if (n === 10 && leader && own?.color === "เขียว") { if (e === "confront") add("draw", 1, { reveal: true }); if (e === "judgment" && won) add("heal", 1); }
+      if (n === 11 && e === "end" && s === r.active && Number(p.flags?.entered?.[code] ?? r.turn) !== r.turn) add("unstack");
+      if (n === 12 && leader && e === "end" && this.p(1-s).flags?.damageTaken) recover({ character: c.character });
+      if (n === 13 && enter) recover({ character: c.character, color: "แดง" });
+      if (n === 14 && leader && e === "judgment" && lost && other?.color === "แดง" && own?.character === c.character && /重撃|共鳴回路/.test(own.feature_name || "")) add("flag", 0, { key: "encoreRetaliation", value: r.duel?.[s] });
+      if (n === 14 && leader && e === "battleEnd" && p.flags?.encoreRetaliation) { add("damage", this.baseDamage(s, String(p.flags.encoreRetaliation)), { seat: 1-s }); add("flag", 0, { key: "encoreRetaliation", value: null }); }
+      if (n === 16 && leader && e === "judgment" && won && own?.color === "เขียว" && other?.color === "น้ำเงิน" && p.hand.length <= 7) add("draw", 8-p.hand.length);
+      if ([17,20].includes(n) && enter) add("draw", 1, { reveal: true });
+      if ([18,21].includes(n) && leader && e === "confront" && own?.color === "เขียว") add("drawUpTo", 2);
+      if (n === 19 && leader && e === "judgment" && won && own?.color === "เขียว") add("pursuit", 3);
+      if (n === 22 && e === "end" && s === r.active && p.hand.length) add("discard", 1, { optional: true, after: [this.op("switchTo", s, 0, { character: c.character, source: code })] });
+      if (n === 23 && enter) add("charge", 1);
+      if ([24,33].includes(n) && leader && e === "confront" && own?.color === "น้ำเงิน") add("charge", 1);
+      if (n === 25 && leader && e === "battleEnd" && p.table.filter(x => x.zone === "action" && x.code && this.hasTag(x.code, "基本攻撃")).length >= 2) add("damage", 3, { seat: 1-s });
+      if (n === 26 && enter) recover({ tag: "基本攻撃" });
+      if ([27,30].includes(n) && leader && e === "confront" && own?.color === "แดง") add("damage", 1, { seat: 1-s });
+      if (n === 28 && leader && e === "judgment" && won && s === r.active) add("revealCharacter", 5, { character: c.character });
+      if (n === 29 && leader && e === "judgment" && won && own?.color === "แดง") add("damage", 2, { seat: 1-s });
+      if (n === 31 && leader && e === "judgment" && won && own?.color === "น้ำเงิน") { swap(); add("pursuit", 3); }
+      if (n === 32 && enter) recover({ to: "concerto" });
+    } else {
+      if ([47,51,66,68,75].includes(n) && e === "judgment" && won) add("draw", 1);
+      if (n === 53 && e === "judgment" && won) add("heal", 1);
+      if (n === 58 && e === "judgment" && won) add("draw", 2);
+      if (n === 58 && e === "judgment" && lost && this.advantage(s) && this.c(p.leader).character === c.character) add("tax", 0, { key: "noComboTurn" });
+      if (n === 46 && e === "combo") swap(c.character, [this.op("selectCard", s, 0, { from: "reserve", to: "upgrade", character: c.character, source: code })]);
+      if (n === 48 && e === "confront") upgrade();
+      if (n === 50 && e === "combo" && p.table.filter(x => x.zone === "action" && x.code && this.hasTag(x.code, "通常攻撃")).length >= 2) add("flag", 0, { key: "bonusDamage", value: 1 });
+      if (n === 54 && e === "combo") swap(c.character, [this.op("heal", s, 1, { source: code })]);
+      if (n === 56 && e === "judgment" && won) upgrade();
+      if (n === 57 && e === "confront") add("flag", 0, { key: "introDraw", value: 2 });
+      if (n === 57 && e === "judgment" && won) { add("heal", 1); add("pursuit", 8); }
+      if (n === 59 && e === "confront" && this.advantage(s) && this.c(p.leader).character === c.character) add("flag", 0, { key: "speedBonus", value: 10-Number(c.speed) });
+      if ([61,74].includes(n) && ["confront","combo"].includes(e || "")) add("flag", 0, { key: "noComboTurn", value: r.turn });
+      if (n === 62 && e === "confront") { add("selectCard", 0, { from: "reserve", to: "upgrade", character: c.character, level: 2, jump: true }); add("switchTo", 0, { character: c.character }); }
+      if (n === 63 && e === "combo") swap(c.character, [this.op("selectCard", s, 0, { from: "trash", to: "hand", character: c.character, color: "แดง", excludeTag: "変奏スキル", source: code })]);
+      if ([65,67].includes(n) && e === "combo" && p.hand.length) add("discard", 1, { optional:true, after: [this.op("flag", s, 0, { key: "bonusDamage", value: 1, source: code })] });
+      if (n === 69 && e === "judgment" && won) add("pursuit", 1);
+      if (n === 69 && e === "battleEnd" && this.c(p.leader).character === c.character && this.energy(s).length) add("paidReturn");
+      if (n === 70 && e === "judgment" && won) recover({ color: "น้ำเงิน" });
+      if (n === 71 && e === "combo") { const previous = p.table.filter(x => x.zone === "action" && !x.faceDown).at(-2); if (previous?.code && this.hasTag(previous.code, "滞空")) add("charge", 1); }
+      if (n === 72 && e === "confront" && this.advantage(s)) recover({ anyTags: ["基本攻撃", "共鳴解放"] });
+      if (n === 73 && e === "judgment" && won) add("selectCard", 0, { from: "deck", to: "hand", nameJp: "龍憑の天舞" });
+      if (n === 74 && e === "combo") add("flag", 0, { key: "bonusDamage", value: p.table.filter(x => x.zone === "action").length });
+      if (n === 76 && e === "confront") add("switchTo", 0, { character: c.character });
+      if (n === 76 && e === "judgment" && won && this.c(p.leader).character === c.character) upgrade();
+      if (n === 77 && e === "judgment" && won && this.energy(s).some(x => x.code && this.c(x.code).character === c.character)) swap();
+    }
+    r.queue ??= [];
+    r.queue.unshift(...ops);
+    return n >= 1 && n <= 77;
+  }
+
+  hasTag(code: string, tag: string): boolean { return (this.c(code).feature_name || "").split(",").includes(tag); }
+  advantage(s: number): boolean { return this.r.previousWinner === s || (!!this.r.duel?.[s] && !this.r.duel?.[1-s]); }
 
   triggerMatches(c: Card, event: string, isLeader: boolean): boolean {
     if (c.info.includes("【リーダー】") && !isLeader) return false;

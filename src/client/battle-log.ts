@@ -1,4 +1,6 @@
 import type { GameLogEntry, PublicRoom } from "../types/game.ts";
+import type { Card } from "../types/card.ts";
+let lookupCard: ((code: string) => Card | undefined) | undefined;
 
 let panel: HTMLElement | null = null;
 let list: HTMLOListElement | null = null;
@@ -48,6 +50,15 @@ function append(entry: GameLogEntry, animate = false): void {
     "</time></div><p>" +
     escape(entry.text).replace(/([0-9]+)/g, "<b>$1</b>") +
     "</p>";
+  const card = entry.source ? lookupCard?.(entry.source) : undefined;
+  if (card) {
+    const thumb = document.createElement("img");
+    thumb.className = "log-card-thumb";
+    thumb.src = card.img;
+    thumb.alt = card.name;
+    thumb.dataset.detail = card.code;
+    item.querySelector("p")?.prepend(thumb);
+  }
   list.append(item);
   while (list.children.length > 100) list.firstElementChild?.remove();
   if (follow) list.scrollTop = list.scrollHeight;
@@ -65,7 +76,8 @@ function drain(): void {
   if (pending.length) timer = setTimeout(drain, 550);
 }
 
-export function updateBattleLog(room: PublicRoom | null | undefined, visible: boolean): void {
+export function updateBattleLog(room: PublicRoom | null | undefined, visible: boolean, card?: (code: string) => Card | undefined): void {
+  lookupCard = card;
   if (!panel) {
     panel = document.createElement("aside");
     panel.id = "battle-log";

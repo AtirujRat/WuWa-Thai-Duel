@@ -425,3 +425,99 @@ test("Shorekeeper green leader effects resolve automatically and emit receipts",
     assert.equal(r.log.some(x => x.notice && x.source === "BP01-010"), leader && green);
   }
 });
+
+// Regression checks for booster effects and effect-selected targets.
+test("Booster victory draws/heals only on winning judgment", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  for (const [code, count, heal] of [["BP01-047",1,0],["BP01-051",1,0],["BP01-058",2,0],["BP01-066",1,0],["BP01-068",1,0],["BP01-075",1,0],["BP01-053",0,1]]) {
+    for (const winner of [0,1,null]) {
+      const r = start(setup()); r.phase="judgment"; r.lastDuel={winner};
+      const game = new Game(r,cards), before=r.players[0].hand.length, hp=r.players[0].hp;
+      game.effect({type:"effect",seat:0,source:code,event:"judgment"}); game.drainQueue();
+      assert.equal(r.players[0].hand.length,before+(winner===0?count:0),code);
+      assert.equal(r.players[0].hp,hp+(winner===0?heal:0),code);
+      assert.equal(r.choice,null);
+    }
+  }
+});
+test("Recovery constrains targets and conserves cards; invalid choices cannot mutate state", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards), p=r.players[0];
+  p.trash.push("BP01-044","BP01-046");
+  game.effect({type:"effect",seat:0,source:"BP01-003",event:"enter"}); game.drainQueue();
+  assert.equal(r.choice.type,"selectCard"); assert.equal(r.choice.options.filter(x=>x.code).length,1);
+  const before=JSON.stringify(p);
+  assert.throws(()=>game.answer({type:"answer",value:"1"})); assert.equal(JSON.stringify(p),before);
+  game.answer({type:"answer",value:"0"});
+  assert.ok(p.hand.includes("BP01-044")); assert.deepEqual(p.trash,["BP01-046"]);
+});
+test("Optional paid combo can be skipped without gaining damage", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards), before=r.players[0].hand.length;
+  game.effect({type:"effect",seat:0,source:"BP01-065",event:"combo"}); game.drainQueue();
+  assert.equal(r.choice.optional,true); game.answer({type:"answer",value:"skip"}); game.drainQueue();
+  assert.equal(r.players[0].hand.length,before); assert.equal(r.players[0].flags.bonusDamage,0);
+});
+test("Shorekeeper recovery draws at most twice per turn", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards), p=r.players[0];
+  p.stacks={"BP01-006":["BP01-006"]};p.field=["BP01-006"];p.leader="BP01-006";
+  const before=p.hand.length;
+  for(let i=0;i<3;i++){game.process({type:"heal",seat:0,n:1});game.drainQueue();}
+  assert.equal(p.hand.length,before+2);assert.equal(p.hp,23);
+});
+test("First Encore basic attack bonus is not repeated on the same card code", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards), p=r.players[0];
+  p.stacks={"BP01-015":["BP01-015"]};p.leader="BP01-015";p.field=["BP01-015"];
+  const item=id=>({id,code:"BP01-059",zone:"action",faceDown:false,x:0,y:0});
+  p.table=[item("first")];assert.equal(game.baseDamage(0,"BP01-059"),Number(map.get("BP01-059").damage)+2);
+  p.table.push(item("second"));assert.equal(game.baseDamage(0,"BP01-059"),Number(map.get("BP01-059").damage));
+});
+test("Effect-only Encore upgrade can jump to level two and returns next owner turn", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards), p=r.players[0];
+  p.field=["BP01-015"];p.leader="BP01-015";p.stacks={"BP01-015":["BP01-015"]};p.reserve=["BP01-011"];
+  game.effect({type:"effect",seat:0,source:"BP01-062",event:"confront"});game.drainQueue();
+  assert.equal(r.choice.type,"selectCard");game.answer({type:"answer",value:"0"});game.drainQueue();
+  assert.equal(p.leader,"BP01-011");assert.deepEqual(p.stacks["BP01-011"],["BP01-015","BP01-011"]);
+  game.effect({type:"effect",seat:0,source:"BP01-011",event:"end"});game.drainQueue();assert.equal(p.leader,"BP01-011");
+  r.turn++;game.effect({type:"effect",seat:0,source:"BP01-011",event:"end"});game.drainQueue();
+  assert.equal(p.leader,"BP01-015");assert.ok(p.reserve.includes("BP01-011"));
+});
+test("Echo advantage damage triggers conserve cards and do not fire on unrelated effect damage", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards), target=r.players[1];
+  r.previousWinner=0;r.lastDuel={winner:0};r.duel=["BP01-041","BP01-045"];
+  const before=target.deck.length, trash=target.trash.length;
+  game.damage(1,1);assert.equal(target.deck.length,before);
+  game.damage(1,1,undefined,"BP01-041");assert.equal(target.deck.length,before-3);assert.equal(target.trash.length,trash+3);
+});
+test("Booster character reveal sends only matching characters to hand", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const r=start(setup()), game=new Game(r,cards),p=r.players[0];
+  p.field=["BP01-028"];p.stacks={"BP01-028":["BP01-028"]};p.leader="BP01-028";
+  p.deck=["BP01-074","BP01-073","BP01-044","BP01-045","BP01-069",...p.deck];r.lastDuel={winner:0};
+  const before=p.hand.length, trash=p.trash.length;
+  game.effect({type:"effect",seat:0,source:"BP01-028",event:"judgment"});game.drainQueue();
+  assert.equal(p.hand.length,before+2);assert.equal(p.trash.length,trash+3);
+});
+
+// Audit dispatch for every catalog card at every effect event. This verifies
+// coverage, while the scenario tests above verify actual rule outcomes.
+test("Every catalog card dispatches effects without a manual fallback", async () => {
+  const { Game } = await import("../src/engine/rules-core.ts");
+  const events = ["start", "end", "battleStart", "battleEnd", "confront", "judgment", "combo", "enter", "level", "switch", "heal"];
+  for (const card of cards) for (const event of events) {
+    const r = setup();
+    const game = new Game(r, cards);
+    r.players[0].leader = card.type === "character" ? card.code : "BP01-010";
+    r.players[0].field = [r.players[0].leader];
+    r.duel = ["SD01-012", "SD02-012"];
+    r.lastDuel = { winner: 0 };
+    r.queue = [];
+    game.effect({ type: "effect", seat: 0, source: card.code, event });
+    assert.ok(!r.queue.some(op => op.type === "manual"), `${card.code} ${event}`);
+    assert.ok(!r.log.some(entry => entry.text.includes("ยังไม่รองรับ")), `${card.code} ${event}`);
+  }
+});

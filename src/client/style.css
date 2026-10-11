@@ -3327,3 +3327,412 @@ body.has-card-info dialog.level-payment-modal {
   .turn-banner { padding: 6px 10px; gap: 8px; }
   .turn-banner strong { font-size: 16px; }
 }
+
+/* Keep the opposite board layout mirrored, but make its cards readable. */
+.battle-shell .opponent-mat .char-stack-btn,
+.battle-shell .opponent-mat .mat-card img,
+.battle-shell .opponent-mat .mat-back,
+.battle-shell .opponent-mat .deck-back,
+.battle-shell .opponent-mat .mini { rotate: 180deg; }
+
+/* Shared app header for catalog, deck editor and gameplay. */
+body > #site-header {
+  height: 48px; min-height: 48px; width: 100%; margin: 0;
+  padding: 5px 16px; box-sizing: border-box;
+  display: grid; grid-template-columns: minmax(130px, 1fr) auto minmax(80px, 1fr);
+  align-items: center; gap: 12px; flex-wrap: nowrap;
+  background: #0e1722f5; border-bottom: 1px solid #293541;
+}
+#site-header .brand { display: flex; align-items: center; gap: 10px; width: auto; font-size: 22px; margin: 0; white-space: nowrap; }
+#site-header .brand small { display: inline-block; margin: 0; font-size: 10px; letter-spacing: 2px; }
+#site-header nav { display: flex; align-items: center; justify-content: center; gap: 6px; width: auto; margin: 0; }
+#site-header nav button { min-height: 36px; padding: 6px 12px; font-size: 14px; border-radius: 6px; white-space: nowrap; }
+#site-header nav button.active { color: #dfc68d; background: #25303c; border: 1px solid #a58b59; }
+#site-header nav span { display: none; }
+#site-header .demo { display: none; }
+#site-header #sound-toggle { justify-self: end; width: auto; min-width: 70px; min-height: 34px; font-size: 12px; padding: 5px 9px; margin: 0; }
+#site-header #sound-toggle::after { content: none; }
+body.battle-view main, body.deck-view main { height: calc(100dvh - 48px); }
+@media(max-width: 760px) {
+  body > #site-header { grid-template-columns: auto 1fr auto; padding: 5px 8px; gap: 5px; }
+  #site-header .brand { font-size: 17px; }
+  #site-header .brand small { display: none; }
+  #site-header nav { gap: 3px; }
+  #site-header nav button { padding: 6px 7px; font-size: 12px; }
+}
+
+/* Deck selection first, followed by a compact full-width editor. */
+.deck-selection { height: 100%; overflow: auto; padding: 24px; }
+.deck-selection-heading { justify-content: space-between; margin-bottom: 20px; }
+.deck-selection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.deck-selection .deck-card-row { display: flex; flex-direction: column; align-items: stretch; padding: 16px; gap: 12px; cursor: pointer; min-width: 0; background: #151e2df2; border: 1px solid #344055; border-radius: 14px; }
+.deck-selection .deck-card-thumbs { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.deck-selection .deck-card-thumbs img { width: 100%; height: auto; max-height: 170px; object-fit: contain; }
+.deck-selection .deck-card-info { min-width: 0; }
+.deck-selection h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.deck-selection .deck-card-actions { display: flex; gap: 8px; align-items: center; }
+.compact-deck-editor.deck-workspace { display: block; padding: 12px; height: 100%; }
+.compact-deck-editor .deck-builder-shell { width: 100%; height: 100%; }
+.compact-deck-editor .deck-builder-main { display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.compact-deck-editor .deck-builder-left { flex: 0 0 auto; display: block; }
+.compact-deck-editor .deck-builder-left > .deck-section:nth-child(2) { display: none; }
+.compact-deck-editor .deck-builder-right { flex: 1 0 auto; }
+.compact-deck-editor .deck-section { padding: 12px; }
+.compact-deck-editor .section-scroll { max-height: none; overflow: visible; }
+.compact-deck-editor .char-picker-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.compact-deck-editor .char-card-item { width: 84px; flex: 0 0 84px; padding: 5px; }
+.compact-deck-editor .char-card-item .art { height: 104px; width: 100%; object-fit: contain; }
+.compact-deck-editor .char-sub, .compact-deck-editor .char-btn-toggle { display: none; }
+.compact-deck-editor .char-name { font-size: 11px; }
+.compact-deck-editor #actionGrid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+.compact-deck-editor .action-card-tile { padding: 4px !important; }
+.compact-deck-editor .action-card-tile .art { height: 132px; object-fit: contain; width: 100%; }
+.compact-deck-editor .action-card-tile .card-meta { display: none; }
+.compact-deck-editor .action-card-tile h3 { font-size: 11px !important; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.compact-deck-editor .action-card-tile .row { margin-top: 4px !important; padding-top: 4px !important; }
+
+/* Catalog detail uses a centered modal; the deck picker needs no inspector rail. */
+#card-info[hidden] { display: none; }
+body dialog.catalog-detail-modal { width: min(850px, calc(100vw - 32px)); max-width: 850px; max-height: 90dvh; overflow: auto; margin: auto; padding: 22px; }
+dialog.catalog-detail-modal #card-info { position: static; inset: auto; width: 100%; height: auto; max-height: none; border: none; background: transparent; overflow: visible; }
+dialog.catalog-detail-modal #card-info .card-info-content { overflow: visible; padding: 12px 0; }
+dialog.catalog-detail-modal #card-info .detail-grid { display: grid; grid-template-columns: minmax(180px, 300px) minmax(0, 1fr); gap: 24px; }
+dialog.catalog-detail-modal #card-info #detailArt { width: 100%; max-height: 65dvh; object-fit: contain; }
+@media(max-width: 600px) { dialog.catalog-detail-modal #card-info .detail-grid { grid-template-columns: 1fr; } }
+
+/* The global header spans the viewport independently of sidebar rails. */
+body { padding-top: 48px; }
+body > #site-header { position: fixed; top: 0; left: 0; right: 0; width: 100%; z-index: 30; }
+body > #card-info { top: 48px; height: calc(100dvh - 48px); }
+body > .battle-log { top: 48px; height: calc(100dvh - 48px); }
+
+/* Gameplay uses the whole viewport without the global navigation. */
+body.battle-view { padding-top: 0; }
+body.battle-view > #site-header { display: none; }
+body.battle-view main { height: 100dvh; }
+body.battle-view > #card-info, body.battle-view > .battle-log { top: 0; height: 100dvh; }
+
+/* More breathing room in the global header and consistent interaction feedback. */
+body:not(.battle-view) { padding-top: 64px; }
+body > #site-header { height: 64px; min-height: 64px; padding: 12px clamp(20px, 3vw, 48px); gap: 20px; }
+body:not(.battle-view) > #card-info, body:not(.battle-view) > .battle-log { top: 64px; height: calc(100dvh - 64px); }
+body.deck-view main { height: calc(100dvh - 64px); }
+#site-header nav button { transition: background-color .2s, border-color .2s, color .2s; }
+.deck-selection .deck-card-row, .char-card-item, .action-card-tile { transition: border-color .18s, box-shadow .18s, background-color .18s; }
+.deck-selection .deck-card-row:hover { border-color: #ad9466; box-shadow: 0 8px 26px #0004; background: #1c2939; }
+.art-button img { transition: filter .18s; }
+.art-button:hover img { filter: brightness(1.08); }
+@media(max-width: 760px) { body > #site-header { padding: 12px 10px; gap: 6px; } }
+@media(prefers-reduced-motion: reduce) { .deck-selection .deck-card-row, .char-card-item, .action-card-tile, .art-button img, #site-header nav button { transition: none; } }
+
+/* The gameplay log reaches both viewport edges when the header is hidden. */
+body.battle-view #battle-log { top: 0; bottom: 0; left: 0; height: 100dvh; max-height: 100dvh; margin: 0; border-radius: 0; }
+
+/* A viewport-sized catalog, with pagination rather than page scrolling. */
+body.catalog-view { height: 100dvh; overflow: hidden; }
+body.catalog-view main { height: calc(100dvh - 64px); margin: 0 auto; padding: 12px 24px; display: flex; flex-direction: column; min-height: 0; }
+.catalog-view .heading { flex: 0 0 auto; padding: 8px 0; margin: 0 0 6px; }
+.catalog-view .heading h1 { font-size: 22px; }
+.catalog-view .heading .muted { margin: 4px 0; }
+.catalog-view #app { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.catalog-view .stats { padding: 6px 0; margin: 0; }
+.catalog-view #app > .small { margin: 3px 0; }
+.catalog-view .toolbar { margin: 8px 0; flex: 0 0 auto; }
+.catalog-view #results { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.catalog-view #results > p { margin: 2px 0 6px; }
+.catalog-view #results > .grid { flex: 1; min-height: 0; grid-template-columns: repeat(var(--catalog-columns), minmax(0, 1fr)); grid-template-rows: repeat(var(--catalog-rows), minmax(0, 1fr)); gap: 12px; }
+.catalog-view .card { min-height: 0; display: flex; flex-direction: column; padding: 6px; overflow: hidden; }
+.catalog-view .art-button { flex: 1; min-height: 0; width: 100%; }
+.catalog-view .art { width: 100%; height: 100%; object-fit: contain; }
+.catalog-view .card h3 { font-size: 13px; margin: 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catalog-view .card-meta { font-size: 11px; }
+.catalog-view .pagination { flex: 0 0 auto; margin: 8px 0 0; }
+.catalog-view footer { display: none; }
+@media(max-height: 650px) { .catalog-view .heading, .catalog-view .stats, .catalog-view #app > .small { display: none; } }
+
+/* Do not stretch the image background to fill unused catalog row height. */
+.catalog-view .art-button { display: flex; align-items: flex-end; justify-content: center; background: transparent; }
+.catalog-view .art { width: auto; max-width: 100%; height: auto; max-height: 100%; aspect-ratio: .716; background: transparent; object-fit: contain; }
+
+/* Four catalog rows; only the actual image is an interactive card frame. */
+.catalog-view #results > .grid { gap: 8px 12px; }
+.catalog-view .card { align-items: center; padding: 0; }
+.catalog-view .art-button { flex: 0 1 auto; display: block; width: auto; height: calc((100dvh - 340px) / 3); max-width: 100%; min-height: 0; align-self: center; border-radius: 6px; }
+.catalog-view .art { display: block; width: auto; height: 100%; max-width: 100%; max-height: 100%; background: transparent; aspect-ratio: .716; border-radius: 6px; }
+.catalog-view .art-button:focus-visible { outline: 2px solid #dfc68d; outline-offset: 2px; }
+.catalog-view .card-head { margin-top: 3px; width: 100%; }
+.catalog-view .card h3 { width: 100%; margin: 2px 0; font-size: 12px; }
+.catalog-view .card-meta { width: 100%; font-size: 10px; }
+.catalog-view #results > .grid { align-items: start; }
+@media(max-height: 650px) { .catalog-view .art-button { height: calc((100dvh - 210px) / 3); } }
+
+/* Fit each image and its captions inside one of three bounded rows. */
+.catalog-view #results > .grid { align-items: stretch; gap: 12px; }
+.catalog-view .card { display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; justify-items: center; align-items: stretch; gap: 2px; padding: 5px 7px; min-height: 0; background: #0c1622b8; border: 1px solid #29394a; border-radius: 9px; }
+.catalog-view .card .art-button { height: 100%; max-height: 100%; width: auto; max-width: 100%; min-height: 0; aspect-ratio: .716; justify-self: center; align-self: stretch; flex: none; border-radius: 5px; }
+.catalog-view .card .art { width: 100%; height: 100%; max-height: 100%; max-width: 100%; object-fit: contain; background: transparent; }
+.catalog-view .card .card-head { margin: 3px 0 0; width: 100%; min-height: 14px; line-height: 14px; }
+.catalog-view .card .code { display: inline-block; color: #b7cbe0; font-size: 10px; line-height: 14px; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.catalog-view .card h3 { width: 100%; margin: 0; font-size: 12px; line-height: 18px; min-height: 18px; color: #fff; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catalog-view .card .card-meta { width: 100%; color: #a9bbcd; font-size: 10px; line-height: 14px; min-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.catalog-view .art-button:hover .art { transform: none; }
+.catalog-view .heading { padding: 2px 0; }
+.catalog-view .stats { padding: 3px 0; }
+.catalog-view .toolbar { margin: 6px 0; }
+
+/* Fewer columns, with artwork reaching the tile edges. */
+.catalog-view .card { padding: 0 0 5px; overflow: hidden; }
+.catalog-view .card .art-button { width: 100%; max-width: 100%; aspect-ratio: auto; border-radius: 0; }
+.catalog-view .card .art { width: 100%; height: 100%; object-fit: contain; border-radius: 0; }
+.catalog-view .card .card-head, .catalog-view .card h3, .catalog-view .card .card-meta { padding-left: 8px; padding-right: 8px; }
+
+.play-lobby-view .heading { display: none; }
+.play-lobby-layout { display: grid; grid-template-columns: minmax(240px, 340px) minmax(0, 1fr); gap: 24px; padding: 24px 0; align-items: start; }
+.play-mode-menu { display: flex; flex-direction: column; gap: 14px; }
+.play-mode-card { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: 16px 18px; border-radius: 14px; border: 1px solid #344054; background: #1b2535; min-height: 96px; }
+.play-mode-card.selected { border-color: #d4b97c; background: #273246; box-shadow: 0 0 0 1px #d4b97c22; }
+.play-mode-card strong { display: block; font-size: 23px; letter-spacing: .06em; }
+.play-mode-card small { display: block; color: #a8b8ce; font-size: 15px; margin-top: 4px; }
+.play-mode-card img { width: 64px; height: 64px; object-fit: cover; object-position: center 20%; border: 2px solid #c8b780; border-radius: 50%; }
+.play-lobby-settings { margin: 0; }
+.play-lobby-settings { padding: 28px; min-width: 0; }
+.play-lobby-settings h2 { margin: 0 0 24px; line-height: 1.5; }
+.play-lobby-settings .stack { gap: 22px; }
+.play-lobby-settings .stack > label { display: grid; gap: 10px; line-height: 1.6; }
+.play-lobby-settings .stack > p { margin: 0; line-height: 1.9; }
+.play-lobby-settings input, .play-lobby-settings select { padding: 13px 16px; }
+.play-lobby-settings .deck-card-list { flex-direction: row; gap: 16px; margin-top: 0; overflow-x: auto; padding: 2px 2px 12px; }
+.play-lobby-settings .deck-card-row { flex: 0 0 280px; min-width: 0; flex-direction: column; align-items: stretch; gap: 16px; padding: 18px; }
+.play-lobby-settings .deck-card-thumbs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.play-lobby-settings .deck-card-thumbs img { width: 100%; height: auto; margin: 0; aspect-ratio: .716; object-fit: contain; }
+.play-lobby-settings .deck-card-info { min-width: 0; flex: 1; }
+.play-lobby-settings .deck-card-info h3 { margin: 0 0 10px; line-height: 1.6; overflow-wrap: anywhere; }
+.play-lobby-settings .deck-card-info p { margin: 0; line-height: 1.8; }
+.play-lobby-settings .deck-selected-tag { margin: 6px 0 0; }
+.play-lobby-settings .deck-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.play-lobby-settings .friend-lobby { display: grid; gap: 16px; padding: 24px; }
+.play-lobby-settings .friend-lobby > button { justify-self: start; }
+.play-lobby-settings .friend-lobby label { display: grid; gap: 10px; line-height: 1.6; }
+.play-lobby-settings .friend-lobby hr { margin: 4px 0; }
+.play-lobby-settings .bot-lobby { padding: 24px; }
+@media(max-width: 600px) { .play-lobby-settings { padding: 20px; } .play-lobby-settings .deck-card-row { flex-basis: 250px; } }
+@media(max-width: 800px) { .play-lobby-layout { grid-template-columns: 1fr; } .play-mode-menu { display: grid; grid-template-columns: 1fr 1fr; } .play-mode-card { padding: 12px; gap: 10px; } }
+
+/* Consistent content gutters outside the match. */
+body:not(.battle-view) main { max-width: 1560px; width: 100%; margin: 0 auto; padding: 12px 24px; box-sizing: border-box; }
+body:not(.battle-view) .deck-selection, body:not(.battle-view) .compact-deck-editor.deck-workspace, body:not(.battle-view) .play-lobby-layout { padding: 0; }
+.color-count-group { display: inline-flex; align-items: center; justify-content: center; align-self: center; gap: 16px; }
+.color-chip { display: inline-flex; align-items: center; justify-content: center; gap: 7px; line-height: 1; font-variant-numeric: tabular-nums; }
+.color-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.dot-red { background: #ff6876; }
+.dot-green { background: #4cdb88; }
+.dot-blue { background: #65baff; }
+.char-card-item.selection-full { filter: grayscale(1); opacity: .55; }
+.char-card-item.selection-full:hover { opacity: .8; }
+/* Keep the lobby footer at the viewport bottom without covering content. */
+body.play-lobby-view { display: flex; flex-direction: column; min-height: 100dvh; }
+body.play-lobby-view main { flex: 1 0 auto; }
+body.play-lobby-view > footer { flex: none; margin-top: auto; }
+
+/* Compact deck editor: artwork and a single control row fit the viewport. */
+body.deck-view { overflow: hidden; }
+.compact-deck-editor .deck-builder-main { overflow: hidden; min-height: 0; }
+.compact-deck-editor .deck-builder-right { flex: 1 1 0; min-height: 0; }
+.compact-deck-editor .deck-builder-right > .deck-section { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.compact-deck-editor #actionGrid { flex: 1; min-height: 0; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 8px; overflow: hidden; }
+.compact-deck-editor .action-card-tile { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) 24px; padding: 0 !important; border: none !important; background: transparent !important; min-height: 0; }
+.compact-deck-editor .action-card-tile .art-button { grid-row: 1; width: 100%; height: 100%; min-height: 0; border-radius: 6px; overflow: hidden; }
+.compact-deck-editor .action-card-tile .art { width: 100%; height: 100%; object-fit: contain; }
+.compact-deck-editor .action-card-tile .card-head { display: none; }
+.compact-deck-editor .action-card-tile h3 { grid-row: 2; margin: 0 22px !important; align-self: center; font-size: 10px !important; line-height: 20px; pointer-events: none; z-index: 1; }
+.compact-deck-editor .action-card-tile > .row { grid-row: 2; grid-column: 1; margin: 0 !important; padding: 0 !important; border: none !important; }
+.compact-deck-editor .action-card-tile > .row > .badge { position: absolute; top: 4px; right: 4px; padding: 1px 4px; font-size: 9px; background: #111b28e6; }
+.compact-deck-editor .action-card-tile > .row > .row { width: 100%; justify-content: space-between; }
+.compact-deck-editor .action-card-tile button.add { width: 20px; height: 20px; min-height: 0; padding: 0; border-radius: 4px; font-size: 12px; }
+.compact-deck-editor .action-card-tile:has(.pill) .art-button { outline: 1px solid var(--gold); outline-offset: -1px; }
+.char-card-item.selection-full { filter: none; opacity: .35; }
+.char-card-item.selection-full:hover { opacity: .6; }
+
+/* Keep captions and artwork in one column; avoid implicit narrow image columns. */
+.compact-deck-editor #actionGrid { grid-auto-rows: max-content; align-content: start; }
+.compact-deck-editor .action-card-tile { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 24px; width: 100%; }
+.compact-deck-editor .action-card-tile > .art-button { grid-column: 1; grid-row: 1; height: auto; aspect-ratio: .716; }
+.compact-deck-editor .action-card-tile .art { height: 100%; width: 100%; background: transparent; border-radius: 6px; }
+.compact-deck-editor .action-card-tile h3 { grid-column: 1; grid-row: 2; min-width: 0; }
+.compact-deck-editor .action-card-tile > .row { grid-column: 1; grid-row: 2; width: 100%; }
+
+/* Give deck cards more breathing room and fewer items per row. */
+.compact-deck-editor #actionGrid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); column-gap: 16px; row-gap: 18px; }
+
+/* Center deck card titles and quantity controls vertically. */
+.compact-deck-editor .action-card-tile > .row, .compact-deck-editor .action-card-tile > .row > .row { height: 24px; align-items: center; }
+.compact-deck-editor .action-card-tile h3 { align-self: center; line-height: 24px; }
+.compact-deck-editor .action-card-tile button.add { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+
+/* Place the title between its buttons instead of overlaying a separate grid item. */
+.compact-deck-editor .action-card-tile > .row > .row { display: grid; grid-template-columns: 20px minmax(0, 1fr) 20px; gap: 4px; align-items: center; }
+.compact-deck-editor .action-card-tile h3.deck-control-title { grid-row: auto; grid-column: auto; margin: 0 !important; padding: 0; width: 100%; line-height: normal; align-self: center; text-align: center; }
+
+/* Battle redesign: a broad upright board and one shared right information rail. */
+body.battle-view { --match-rail-width: clamp(280px, 23vw, 370px); padding-left: 0; padding-right: var(--match-rail-width); overflow: hidden; }
+body.battle-view main { padding: 12px 16px; }
+body.battle-view > #card-info { width: var(--match-rail-width); top: 12px; right: 12px; bottom: auto; height: calc(58dvh - 18px); border: 1px solid #3e5267; border-radius: 14px; background: #0d1827f5; }
+body.battle-view #battle-log { left: auto; right: 12px; top: 58dvh; bottom: 12px; width: var(--match-rail-width); height: calc(42dvh - 12px); max-height: none; border: 1px solid #3e5267; border-radius: 14px; background: #0d1827f5; }
+body.battle-view #battle-log .battle-log-heading { padding: 12px 16px; }
+body.battle-view #battle-log .log-status { display: none; }
+body.battle-view.log-collapsed #battle-log { top: auto; height: 52px; }
+body.battle-view.log-collapsed #battle-log .battle-log-heading strong { display: block; }
+body.battle-view.log-collapsed > #card-info { height: calc(100dvh - 88px); }
+body.battle-view.inspector-collapsed > #card-info { height: 52px; }
+body.battle-view.inspector-collapsed #card-info .card-info-content { display: none; }
+body.battle-view.inspector-collapsed:not(.log-collapsed) #battle-log { top: 76px; height: calc(100dvh - 88px); }
+body.battle-view .card-info-heading { padding: 12px 16px; font-size: 16px; }
+body.battle-view .card-info-content { padding: 14px 18px; }
+body.battle-view #card-info #detailArt { max-width: 200px; max-height: 27dvh; }
+body.battle-view #card-info .detail-grid { gap: 10px; }
+body.battle-view #card-info h2 { font-size: 19px; }
+body.battle-view #card-info .effect { font-size: 14px; line-height: 1.7; }
+body.battle-view #card-info .muted, body.battle-view #card-info label, body.battle-view #card-info .badge { font-size: 12px; }
+.battle-view .battle-shell { max-width: none; grid-template-rows: 30px minmax(0, 1fr) auto minmax(0, .88fr) clamp(100px, 18dvh, 180px); gap: 8px; }
+.battle-view .battle-shell.life-rail-layout { padding: 0; }
+.battle-view .battle-bar { padding: 0 6px; color: #a9bdd3; }
+.battle-view .battle-bar > span { display: none; }
+.battle-view .battle-shell .opponent-half { grid-template-rows: 46px minmax(0, 1fr); gap: 8px; }
+.battle-view .opponent-hand { padding-right: 130px; padding-left: 130px; }
+.battle-view .opponent-hand-cards { height: 44px; gap: 4px; grid-template-columns: repeat(var(--hand-count), 30px); width: auto; }
+.battle-view .opponent-hand-back { width: 30px; height: 44px; }
+.battle-view .opponent-hand strong { display: none; }
+.battle-view .battle-shell .playmat { grid-template-columns: 100px minmax(0, 1fr) 100px; gap: 8px 16px; padding: 8px 12px; border: 1px solid #344d63; border-radius: 14px; background: linear-gradient(110deg, #0b1a2ad9, #172d40b3); }
+.battle-view .battle-shell .opponent-mat { transform: none; }
+.battle-view .opponent-mat .char-stack-btn, .battle-view .opponent-mat .mat-card img, .battle-view .opponent-mat .mat-back, .battle-view .opponent-mat .deck-back, .battle-view .opponent-mat .mini { rotate: none; }
+.battle-view .battle-shell .mat-characters { display: flex; justify-content: center; align-items: stretch; gap: 18px; padding: 0; }
+.battle-view .battle-shell .character-slot { width: clamp(72px, 7.5vw, 116px); flex: 0 1 116px; padding: 4px; border-radius: 8px; background: #0b1626b3; min-width: 0; }
+.battle-view .battle-shell .character-slot > .art-button { height: calc(100% - 22px); min-height: 0; }
+.battle-view .battle-shell .character-slot .art { height: 100%; width: 100%; background: transparent; object-fit: contain; }
+.battle-view .battle-shell .character-slot > span { font-size: 11px; line-height: 18px; }
+.battle-view .battle-shell .character-slot > button[data-do] { position: absolute; bottom: 3px; right: 3px; font-size: 9px; }
+.battle-view .battle-shell .leader-slot { border: 1px solid #d8be82; box-shadow: 0 0 12px #d8be821c; }
+.battle-view .battle-shell .character-deck, .battle-view .battle-shell .mat-deck { background: #0b1626a6; border: 1px solid #344d63; padding: 5px; font-size: 11px; }
+.battle-view .battle-shell .deck-back { height: 55%; max-height: 75px; }
+.battle-view .battle-shell .mat-zone { background: #07132266; border: 1px dashed #3b5971; border-radius: 8px; }
+.battle-view .battle-shell .mat-label { font-size: 10px; color: #a7bed0; }
+.battle-view .battle-shell .opponent-mat .mat-characters { grid-row: 1; }
+.battle-view .battle-shell .opponent-mat .mat-action { grid-row: 2; }
+.battle-view .battle-shell .opponent-mat .mat-concerto { grid-row: 2; }
+.battle-view .battle-shell .opponent-mat .character-deck { grid-row: 1; grid-column: 1; }
+.battle-view .battle-shell .opponent-mat .mat-deck { grid-row: 1; grid-column: 3; }
+.battle-view .battle-shell .opponent-mat .mat-trash { grid-row: 2; grid-column: 3; }
+.battle-view .battle-divider { border: none; background: #0c1a29e6; border-radius: 10px; padding: 8px 12px; gap: 8px 16px; }
+.battle-view .turn-banner { padding: 5px 12px; gap: 10px; box-shadow: none; }
+.battle-view .turn-banner strong { font-size: 15px; }
+.battle-view .turn-banner > span { font-size: 13px; }
+.battle-view .battle-phase-track .phase-track { margin: 0; padding: 0; background: transparent; border: none; }
+.battle-view .battle-phase-track .phase-track li { font-size: 11px; padding: 4px 7px; }
+.battle-view .battle-phase-track .phase-caption, .battle-view .battle-phase-track .phase-note { display: none; }
+.battle-view .life-rail-layout > .field-life.enemy-life { top: 37px; right: 4px; width: 112px; }
+.battle-view .life-rail-layout > .field-life.my-life { bottom: 12px; left: 4px; width: 112px; }
+.battle-view .hand-dock { padding: 8px 0 0 128px; border: none; justify-content: center; position: relative; }
+.battle-view .hand-count { position: absolute; left: 135px; top: -4px; font-size: 11px; }
+.battle-view .battle-shell .hand { gap: 12px; width: 100%; justify-content: safe center; padding: 4px 2px; }
+.battle-view .battle-shell .hand .card { border: 1px solid #426785; border-radius: 7px; }
+.battle-view .battle-shell .hand .art { background: transparent; border-radius: 6px; }
+.battle-view .battle-log-entry { padding: 9px; margin-bottom: 6px; background: #132337a6; }
+.battle-view .log-card-thumb { float: left; width: 30px; height: 42px; object-fit: contain; margin: 0 9px 4px 0; border-radius: 3px; }
+.battle-view .battle-log-entry p { font-size: 12px; }
+@media(max-width: 1000px) {
+ body.battle-view { --match-rail-width: 250px; }
+ .battle-view .battle-shell .playmat { grid-template-columns: 74px minmax(0, 1fr) 74px; gap: 6px; }
+ .battle-view .battle-shell .mat-characters { gap: 8px; }
+ .battle-view .battle-phase-track { display: none; }
+}
+@media(max-width: 700px) {
+ body.battle-view { --match-rail-width: 0px; padding-right: 0; }
+ body.battle-view > #card-info, body.battle-view #battle-log { display: none; }
+ .battle-view .battle-shell .playmat { grid-template-columns: 58px minmax(0, 1fr) 58px; padding: 5px; }
+ .battle-view .battle-shell .character-slot { width: 62px; }
+ .battle-view .hand-dock { padding-left: 85px; }
+ .battle-view .life-rail-layout > .field-life { width: 76px !important; }
+ .battle-view .life-value strong { font-size: 22px; }
+}
+
+/* Roomier match inspector with compact secondary information. */
+@media(min-width: 1001px) {
+ body.battle-view { --match-rail-width: clamp(390px, 29vw, 480px); padding-right: calc(var(--match-rail-width) + 12px); }
+}
+body.battle-view > #card-info { height: calc(76dvh - 18px); }
+body.battle-view #battle-log { top: 76dvh; height: calc(24dvh - 12px); }
+body.battle-view #card-info .detail-grid { grid-template-columns: 1fr; }
+body.battle-view #card-info .detail-grid:has(.rule-picks) > #detailArt { display: none; }
+body.battle-view #card-info .card-info-content { padding: 10px 18px; }
+body.battle-view #card-info .detail-grid p { margin: 7px 0; }
+body.battle-view #card-info .detail-grid h2 { margin: 6px 0 12px; }
+body.battle-view #card-info .detail-grid h3 { margin: 12px 0 8px; font-size: 15px; }
+body.battle-view #card-info .rule-picks { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0; }
+body.battle-view #card-info .rule-picks img { width: 72px; height: 101px; object-fit: contain; }
+body.battle-view #card-info .rule-picks > div { padding: 6px; }
+body.battle-view #card-info .effect { padding: 10px 12px; margin: 10px 0; line-height: 1.6; }
+body.battle-view #card-info #detailArt { max-height: 20dvh; }
+.level-up-reveal { border: 0; background: transparent; box-shadow: none; padding: 30px; width: min(600px, 90vw); max-height: 90dvh; overflow: hidden; color: #f2dfab; text-align: center; }
+.level-up-reveal::backdrop { background: #060b1be6; backdrop-filter: blur(3px); }
+.level-up-pair { display: flex; justify-content: center; align-items: center; gap: 26px; }
+.level-up-pair figure { position: relative; margin: 0; width: clamp(100px, 17vw, 165px); }
+.level-up-pair img { display: block; width: 100%; border-radius: 8px; }
+.level-up-pair figcaption { position: absolute; bottom: 6px; left: 0; right: 0; font-weight: 700; color: white; text-shadow: 0 2px 4px black; }
+.level-up-before { opacity: .55; transform: scale(.92); }
+.level-up-after { border: 1px solid #ebcb82; border-radius: 8px; box-shadow: 0 0 30px #e7bc6555; animation: level-up-arrive .4s ease-out; }
+.level-up-arrow { font-size: 32px; color: #e9c572; }
+.level-up-reveal > p { margin: 22px 0 0; font-size: 18px; font-weight: 700; }
+@keyframes level-up-arrive { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+@media(prefers-reduced-motion: reduce) { .level-up-after { animation: none; } }
+
+/* Larger character choices and readable inspector type. */
+body.battle-view #card-info .rule-picks img { width: 96px; height: 134px; }
+body.battle-view #card-info .rule-picks { gap: 14px; }
+body.battle-view #card-info h2 { font-size: 23px; }
+body.battle-view #card-info .detail-grid h3 { font-size: 18px; }
+body.battle-view #card-info .effect { font-size: 16px; line-height: 1.75; }
+body.battle-view #card-info .muted, body.battle-view #card-info label, body.battle-view #card-info .badge { font-size: 14px; }
+body.battle-view #card-info .rule-picks span { font-size: 13px; }
+.trash-pile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: 100%; height: 100%; padding: 5px; background: #0b162688; border: 1px dashed #3b5971; border-radius: 8px; font-size: 12px; }
+.trash-pile img { width: auto; max-width: 100%; height: min(75px, 65%); object-fit: contain; border-radius: 4px; }
+.trash-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 18px; max-height: 65dvh; overflow: auto; padding: 12px; }
+.trash-gallery .art-button { display: flex; flex-direction: column; gap: 8px; align-items: center; font-size: 13px; }
+.trash-gallery .art { width: 100%; height: auto; aspect-ratio: .716; object-fit: contain; }
+
+/* Action cards remain anchored to the middle of their zone. */
+.battle-shell .mat-action .mat-card { left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; cursor: pointer; }
+
+/* Larger game dialogs and card choices, bounded by the viewport. */
+body.battle-view dialog:not(.level-up-reveal), body.has-card-info dialog.level-payment-modal {
+ box-sizing: border-box; width: min(1080px, calc(100vw - 48px)); min-width: 0;
+ max-width: min(1080px, calc(100vw - 48px)); max-height: calc(100dvh - 48px);
+ padding: 32px; margin: auto; inset: 0; font-size: 16px;
+}
+body.battle-view dialog:not(.level-up-reveal) h2 { font-size: 27px; margin: 0 44px 22px 0; }
+body.battle-view dialog:not(.level-up-reveal) > p { font-size: 17px; margin-bottom: 22px; }
+body.battle-view dialog:not(.level-up-reveal) .rule-picks { gap: 18px; margin: 20px 0; justify-content: center; }
+body.battle-view dialog:not(.level-up-reveal) .rule-picks > label,
+body.battle-view dialog:not(.level-up-reveal) .rule-picks > div,
+body.battle-view dialog:not(.level-up-reveal) .rule-picks > button { flex: 0 0 144px; padding: 10px; font-size: 14px; line-height: 1.5; }
+body.battle-view dialog:not(.level-up-reveal) .rule-picks img { width: 120px; height: 168px; object-fit: contain; }
+body.battle-view dialog:not(.level-up-reveal) > button:not(.close) { padding: 13px 20px; font-size: 16px; }
+@media(max-width: 600px) {
+ body.battle-view dialog:not(.level-up-reveal), body.has-card-info dialog.level-payment-modal { width: calc(100vw - 24px); max-width: calc(100vw - 24px); padding: 20px; }
+ body.battle-view dialog:not(.level-up-reveal) .rule-picks { gap: 10px; }
+ body.battle-view dialog:not(.level-up-reveal) .rule-picks > label, body.battle-view dialog:not(.level-up-reveal) .rule-picks > div, body.battle-view dialog:not(.level-up-reveal) .rule-picks > button { flex-basis: 122px; }
+ body.battle-view dialog:not(.level-up-reveal) .rule-picks img { width: 100px; height: 140px; }
+}
+
+/* Let payment artwork fill a larger card-sized choice. */
+body.battle-view dialog.level-payment-modal .rule-picks > label {
+ flex: 0 0 170px; width: 170px; max-width: 170px; padding: 8px;
+ gap: 10px; justify-content: flex-start; align-items: stretch;
+}
+body.battle-view dialog.level-payment-modal .rule-picks img {
+ display: block; width: 100%; height: auto; aspect-ratio: .716;
+ object-fit: contain; margin: 0; border-radius: 5px;
+}
+body.battle-view dialog.level-payment-modal .rule-picks { gap: 18px; }
+@media(max-width: 600px) {
+ body.battle-view dialog.level-payment-modal .rule-picks > label { flex-basis: 130px; width: 130px; max-width: 130px; }
+}

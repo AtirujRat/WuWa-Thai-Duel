@@ -1,4 +1,4 @@
-import { installUiMotion } from "./ui-motion.ts";
+import { installUiMotion, animatePage } from "./ui-motion.ts";
 installUiMotion();
 import { updateBattlePresentation } from "./battle-presentation.ts";
 import { updateBattleLog } from "./battle-log.ts";
@@ -42,7 +42,7 @@ function playmat(p: PublicPlayer, mine: boolean, live: boolean): string {
       .filter((c) => c.zone === z)
       .map(
         (c) =>
-          `<button data-fx-card="${c.id}" class="mat-card ${z === "concerto" ? "horizontal" : ""} ${c.faceDown ? "face-down" : ""}" style="left:${c.x * 100}%;top:${c.y * 100}%;transform:translate(-${c.x * 100}%,-${c.y * 100}%)" ${mine && live ? `data-table-drag="${c.id}" data-table-menu="${c.id}"` : !c.faceDown && c.code ? `data-detail="${c.code}"` : ""} aria-label="${c.faceDown ? "การ์ดคว่ำ" : esc(c.code ? card(c.code)?.name : "")}">${c.faceDown ? '<span class="mat-back" aria-hidden="true"></span>' : `<img draggable="false" src="${c.code ? card(c.code)?.img : ""}" alt="${esc(c.code ? card(c.code)?.name : "")}">`}</button>`,
+          `<button data-fx-card="${c.id}" class="mat-card ${z === "concerto" ? "horizontal" : ""} ${c.faceDown ? "face-down" : ""}" style="left:${c.x * 100}%;top:${c.y * 100}%;transform:translate(-${c.x * 100}%,-${c.y * 100}%)" ${mine && live ? `${z === "action" ? "" : `data-table-drag="${c.id}"`} data-table-menu="${c.id}"` : !c.faceDown && c.code ? `data-detail="${c.code}"` : ""} aria-label="${c.faceDown ? "การ์ดคว่ำ" : esc(c.code ? card(c.code)?.name : "")}">${c.faceDown ? '<span class="mat-back" aria-hidden="true"></span>' : `<img draggable="false" src="${c.code ? card(c.code)?.img : ""}" alt="${esc(c.code ? card(c.code)?.name : "")}">`}</button>`,
       )
       .join("")}</div>`;
 
@@ -106,6 +106,14 @@ document.addEventListener(
       else if (cardEl) sound("card");
     }
 
+    const trash = target.closest<HTMLElement>("[data-view-trash]");
+    if (trash && room) {
+      e.stopImmediatePropagation();
+      const player = room.players[Number(trash.dataset.viewTrash)];
+      dialog.innerHTML = `${btn("close", "✕", "", "close")}<h2>กองทิ้ง · ${esc(player.name)} (${player.trash.length} ใบ)</h2><div class="trash-gallery">${player.trash.map(code => `<button class="art-button" data-detail="${code}" aria-label="${esc(card(code)?.name)}">${img(card(code)!)}<span>${esc(card(code)?.name)}</span></button>`).join("") || '<p class="muted">ไม่มีการ์ดในกองทิ้ง</p>'}</div>`;
+      dialog.showModal();
+      return;
+    }
     const menu = target.closest<HTMLElement>("[data-table-menu]");
     const place = target.closest<HTMLElement>("[data-place-hand]");
     const command = target.closest<HTMLElement>("[data-table-command]");
@@ -126,7 +134,9 @@ document.addEventListener(
     }
     if (place && room?.rulesVersion) {
       e.stopImmediatePropagation();
-      showRuleCard(undefined, Number(place.dataset.placeHand));
+      const index = Number(place.dataset.placeHand);
+      const zone = room.phase === "action" ? "concerto" : "action";
+      await action({ type: "tablePlace", index, code: room.players[room.seat].hand[index], zone, x: 0.5, y: 0.5, faceDown: zone === "action", version: room.version });
       return;
     }
     if (place && room) {
@@ -479,11 +489,15 @@ function filtered(): Card[] {
 
 function results(): string {
   const arr = filtered();
-  const pages = Math.max(1, Math.ceil(arr.length / 24));
+  const width = document.querySelector("main")?.clientWidth || innerWidth;
+  const columns = Math.max(2, Math.min(7, Math.floor((width - 48) / 190)));
+  const rows = 3;
+  const perPage = columns * rows;
+  const pages = Math.max(1, Math.ceil(arr.length / perPage));
   page = Math.min(page, pages);
-  return `<p class="muted small">${arr.length} รหัสการ์ด · กดภาพเพื่ออ่านคำแปล</p><div class="grid">${
+  return `<p class="muted small">${arr.length} รหัสการ์ด · กดภาพเพื่ออ่านคำแปล</p><div class="grid" style="--catalog-columns:${columns};--catalog-rows:${rows}">${
     arr
-      .slice((page - 1) * 24, page * 24)
+      .slice((page - 1) * perPage, page * perPage)
       .map((c) => tile(c, false))
       .join("") || '<div class="empty">ไม่พบการ์ดที่ตรงกับการค้นหา</div>'
   }</div><div class="pagination">${btn("prev", "← ก่อนหน้า", page === 1 ? "disabled" : "")}<span>${page} / ${pages}</span>${btn("next", "ถัดไป →", page === pages ? "disabled" : "")}</div>`;
@@ -625,7 +639,7 @@ function deckSummaryBar(): string {
   const colorCount = (color: string) =>
     actionsInDeck.filter(([c]) => normalizeColor(c?.color) === normalizeColor(color)).reduce((s, [, n]) => s + n, 0);
   const chip = (dot: string, label: string, n: number) =>
-    `<span class="color-chip"><span class="color-dot ${dot}"></span>${label} ${n}</span>`;
+    `<span class="color-chip" aria-label="${label} ${n} ใบ" title="${label} ${n} ใบ"><span class="color-dot ${dot}" aria-hidden="true"></span>${n}</span>`;
   return `<div id="deckSummary" class="panel deck-summary-bar row"><input id="deckName" aria-label="ชื่อเด็ค" maxlength="80" value="${esc(deck.name)}"><span class="small ${v.valid ? "pill" : "danger"}">${v.valid ? "✓ พร้อมเล่น" : v.errors.slice(0, 2).map(esc).join(" · ")}</span><span class="badge">${v.characters} ตัวละคร</span><span class="badge">${v.actions} / 40 แอ็กชัน</span><span class="color-count-group">${chip("dot-red", "แดง", colorCount("สีแดง"))}${chip("dot-green", "เขียว", colorCount("สีเขียว"))}${chip("dot-blue", "ฟ้า", colorCount("สีน้ำเงิน"))}</span>${btn("save", "บันทึกเด็ค", "", "primary")}</div>`;
 }
 
@@ -640,7 +654,7 @@ function section1Characters(): string {
     (ch) => {
       const isSel = selectedIds.has(ch.id);
       const lv0Card = card(ch.lv0);
-      return `<div class="char-card-item ${isSel ? "selected" : ""}" data-do="toggleChar" data-char="${ch.id}"><span class="char-check">${isSel ? "✓" : "+"}</span><button class="art-button" data-detail="${ch.lv0}" aria-label="อ่าน ${esc(ch.name)}" onclick="event.stopPropagation()">${lv0Card ? img(lv0Card) : ""}</button><div class="char-name">${esc(ch.name)}</div><div class="char-sub">${esc(ch.th)} · Lv.0</div><div class="char-sub muted">${esc(ch.element)}</div><button class="char-btn-toggle ${isSel ? "primary" : ""}" data-do="toggleChar" data-char="${ch.id}">${isSel ? "✓ เลือกแล้ว" : "+ เลือกตัวนี้"}</button></div>`;
+      return `<div class="char-card-item ${isSel ? "selected" : selected.length >= 3 ? "selection-full" : ""}" data-do="toggleChar" data-char="${ch.id}"><span class="char-check">${isSel ? "✓" : "+"}</span><button class="art-button" data-detail="${ch.lv0}" aria-label="อ่าน ${esc(ch.name)}" onclick="event.stopPropagation()">${lv0Card ? img(lv0Card) : ""}</button><div class="char-name">${esc(ch.name)}</div><div class="char-sub">${esc(ch.th)} · Lv.0</div><div class="char-sub muted">${esc(ch.element)}</div><button class="char-btn-toggle ${isSel ? "primary" : ""}" data-do="toggleChar" data-char="${ch.id}">${isSel ? "✓ เลือกแล้ว" : "+ เลือกตัวนี้"}</button></div>`;
     },
   ).join("")}</div></section>`;
 }
@@ -694,7 +708,7 @@ function renderActionCardsGrid(): string {
   return actions
     .map((c) => {
       const inDeck = deck.entries[c.code] || 0;
-      return `<article class="card action-card-tile compatible" style="background:#101a26;padding:10px;border-radius:8px;border:1px solid ${inDeck > 0 ? "var(--gold)" : "var(--line)"}"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="code">${c.code}</span><span class="badge ${normalizeColor(c.color) === "แดง" ? "color-red" : normalizeColor(c.color) === "เขียว" ? "color-green" : "color-blue"}">${esc(c.color)}</span></div><h3 style="font-size:15px;margin:4px 0">${esc(c.name)}</h3><div class="card-meta">${c.character === "ใช้ร่วมกัน" ? '<span class="action-compat-badge">🌐 ใช้ร่วมกัน</span>' : `<span class="action-compat-badge">✓ ${esc(c.character)}</span>`}</div><div class="card-meta" style="margin-top:4px">ค่าใช้ ${c.fee} · พลัง ${c.damage} · เร็ว ${c.speed || "—"}</div><div class="row" style="justify-content:space-between;align-items:center;margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="badge ${inDeck > 0 ? "pill" : ""}">ในเด็ค: ${inDeck} / 3</span><div class="row" style="gap:4px">${btn("remove", "−", `data-code="${c.code}" ${inDeck === 0 ? "disabled" : ""} aria-label="ลด ${esc(c.name)}"`, "add")}${btn("add", "+", `data-code="${c.code}" ${inDeck >= 3 || actionCount >= 40 ? "disabled" : ""} aria-label="เพิ่ม ${esc(c.name)}"`, "add")}</div></div></article>`;
+      return `<article class="card action-card-tile compatible" style="background:#101a26;padding:10px;border-radius:8px;border:1px solid ${inDeck > 0 ? "var(--gold)" : "var(--line)"}"><button class="art-button" data-detail="${c.code}" aria-label="อ่าน ${esc(c.name)}">${img(c)}</button><div class="card-head"><span class="badge ${normalizeColor(c.color) === "แดง" ? "color-red" : normalizeColor(c.color) === "เขียว" ? "color-green" : "color-blue"}">${esc(c.color)}</span></div><div class="card-meta">${c.character === "ใช้ร่วมกัน" ? '<span class="action-compat-badge">🌐 ใช้ร่วมกัน</span>' : `<span class="action-compat-badge">✓ ${esc(c.character)}</span>`}</div><div class="card-meta" style="margin-top:4px">ค่าใช้ ${c.fee} · พลัง ${c.damage} · เร็ว ${c.speed || "—"}</div><div class="row" style="justify-content:space-between;align-items:center;margin-top:10px;border-top:1px solid var(--line);padding-top:8px"><span class="badge ${inDeck > 0 ? "pill" : ""}">ในเด็ค: ${inDeck} / 3</span><div class="row" style="gap:4px">${btn("remove", "−", `data-code="${c.code}" ${inDeck === 0 ? "disabled" : ""} aria-label="ลด ${esc(c.name)}"`, "add")}<h3 class="deck-control-title">${esc(c.name)}</h3>${btn("add", "+", `data-code="${c.code}" ${inDeck >= 3 || actionCount >= 40 ? "disabled" : ""} aria-label="เพิ่ม ${esc(c.name)}"`, "add")}</div></div></article>`;
     })
     .join("");
 }
@@ -723,8 +737,10 @@ function deckMenuHTML(): string {
  return '<button class="deck-menu-item '+(d.id===deck.id?'active':'')+'" '+(d.draft?'':'data-do="editDeck" data-id="'+esc(d.id)+'"')+'><span class="deck-menu-portraits">'+(team.length?team.map(c=>'<img src="'+esc(c.img)+'" alt="'+esc(c.name)+'">').join(''):'เลือกตัวละคร')+'</span><strong>'+esc(d.name)+'</strong><small>'+(d.draft?'ยังไม่บันทึก':team.map(c=>esc(c.name)).join(' · '))+'</small></button>';
  }).join('')+'</div><button data-do="new">+ สร้างเด็ค</button></aside>';
 }
+let deckEditing = false;
 function decksPage(): string {
-  return `<div class="deck-workspace">${deckMenuHTML()}<div class="deck-builder-shell"><div class="row subnav" style="justify-content:space-between"><div class="row"></div><div class="row">${btn("import", "นำเข้าเด็ค")}${btn("export", "ส่งออกเด็ค")}<input id="importFile" type="file" accept="application/json,.json" hidden></div></div>${deckSummaryBar()}<div class="deck-builder-main"><div class="deck-builder-left">${section1Characters()}${section2CharacterCards()}</div><div class="deck-builder-right">${section3ActionCards()}</div></div></div></div>`;
+  if (!deckEditing) return `<section class="deck-selection"><div class="row deck-selection-heading"><h2>เด็คของคุณ</h2>${btn("new", "+ สร้างเด็ค", "", "primary")}</div><div class="deck-selection-grid">${saved.map(d => deckCardRow(d).replace(/data-do="selectSaved"/, 'data-do="editDeck"')).join("") || '<p class="muted">ยังไม่มีเด็คที่บันทึกไว้ · กดสร้างเด็คเพื่อเริ่มต้น</p>'}</div></section>`;
+  return `<div class="deck-workspace compact-deck-editor"><div class="deck-builder-shell"><div class="row subnav" style="justify-content:space-between"><div class="row">${btn("deckList", "← เด็คของคุณ")}</div><div class="row">${btn("import", "นำเข้าเด็ค")}${btn("export", "ส่งออกเด็ค")}<input id="importFile" type="file" accept="application/json,.json" hidden></div></div>${deckSummaryBar()}<div class="deck-builder-main"><div class="deck-builder-left">${section1Characters()}${section2CharacterCards()}</div><div class="deck-builder-right">${section3ActionCards()}</div></div></div></div>`;
 }
 
 let inLobby = false;
@@ -736,10 +752,11 @@ function guestName(): string {
 
 function playLobby(): string {
   const valid = validateDeck(deck.entries, cards);
-  const modeToggle = `<div class="row play-mode-toggle" role="tablist" aria-label="โหมดการเล่น"><button type="button" class="mode-tab ${playMode === "bot" ? "active" : ""}" data-do="playMode" data-mode="bot" role="tab" aria-selected="${playMode === "bot"}">🤖 เล่นกับบอท</button><button type="button" class="mode-tab ${playMode === "friend" ? "active" : ""}" data-do="playMode" data-mode="friend" role="tab" aria-selected="${playMode === "friend"}">👥 เล่นกับผู้เล่น</button></div>`;
-  const botPanel = `<div class="bot-lobby"><p class="small muted">กฎพื้นฐานตามคู่มือ 12 ก.ย. 2026 · เด็คเริ่มต้นประมวลผลเอฟเฟกต์อัตโนมัติ · ชุดเสริมบางใบยังไม่รองรับ ระบบจะแจ้งและข้ามเอฟเฟกต์นั้น</p><div class="row"><label>ระดับบอท <select id="botDifficulty"><option value="easy">ง่าย · สุ่มการ์ด</option><option value="normal" selected>ปกติ · เลือกตามพลัง</option></select></label><label>เด็คบอท <select id="botDeck"><option>SD02</option><option>SD01</option></select></label></div><div style="margin-top:16px">${btn("startBot", "เริ่มเล่นกับบอท", valid.valid ? "" : "disabled", "primary")}</div></div>`;
-  const friendPanel = `<div class="friend-lobby"><p class="small muted">สร้างห้องแล้วส่งรหัสให้เพื่อน หรือใส่รหัสห้องที่ได้รับมาเพื่อเข้าร่วม</p>${btn("create", "สร้างห้อง", valid.valid ? "" : "disabled")}<hr style="width:100%;border:0;border-top:1px solid var(--line)"><label>รหัสห้องของเพื่อน<input id="roomCode" maxlength="8" value="${esc(new URLSearchParams(location.search).get("room") || "")}" placeholder="รหัส 8 ตัว (แยกตัวพิมพ์เล็ก/ใหญ่)" style="display:block;width:100%"></label>${btn("join", "เข้าห้องเพื่อน", valid.valid ? "" : "disabled")}</div>`;
-  return `<div class="notice">ห้องใหม่ใช้กฎตามเฟส: กดจั่ว ชาร์จ อัปเลเวล เปิดแอ็กชันพร้อมกัน และคอมโบ · เอฟเฟกต์แสดงพร้อมรูปการ์ด · ใบที่ยังไม่รองรับจะแจ้งให้ทราบ</div><div class="split"><div class="panel"><h2>เริ่มดวล 1 ต่อ 1</h2>${modeToggle}<div class="stack"><label>ชื่อของคุณ (ไม่บังคับ)<input id="playerName" maxlength="32" placeholder="เว้นว่างได้ · ระบบจะตั้งชื่อ Guest ให้อัตโนมัติ" style="display:block;width:100%"></label><p>เด็คที่เลือก: <strong>${esc(deck.name)}</strong><br><span class="small ${valid.valid ? "pill" : "danger"}">${valid.valid ? "พร้อมเล่น · " + valid.actions + " แอ็กชัน" : esc(valid.errors.join(" · "))}</span></p>${deckPickerInline()}${playMode === "bot" ? botPanel : friendPanel}</div></div><aside class="panel"><h3>ลองสองคนได้อย่างไร</h3><p class="muted">เครื่องเดียว: เปิดเว็บในอีกเบราว์เซอร์ แล้วใส่รหัสห้อง</p><p class="muted">คนละเครื่อง: อยู่ Wi-Fi เดียวกัน เปิดที่อยู่ LAN ที่ปรากฏตอนเริ่มเดโม แล้วใส่รหัสห้องเดียวกัน</p><p class="small muted">การเล่นผ่านอินเทอร์เน็ตคนละเครือข่ายจะเพิ่มเมื่อโฮสต์จริง เก็บหน้าต่างเซิร์ฟเวอร์ไว้ระหว่างเล่น</p>${room ? btn("resume", "กลับเข้าห้องเดิม") : ""}</aside></div>`;
+  const modeToggle = `<aside class="play-mode-menu" aria-label="เลือกโหมดเล่น"><button type="button" class="play-mode-card ${playMode === "bot" ? "selected" : ""}" data-do="playMode" data-mode="bot" aria-pressed="${playMode === "bot"}"><span><strong>BOT</strong><small>เล่นกับบอท</small></span><img src="${card("BP01-010")?.img || ""}" alt=""></button><button type="button" class="play-mode-card ${playMode === "friend" ? "selected" : ""}" data-do="playMode" data-mode="friend" aria-pressed="${playMode === "friend"}"><span><strong>PLAYER</strong><small>เล่นกับผู้เล่น</small></span><img src="${card("BP01-016")?.img || ""}" alt=""></button>${room ? btn("resume", "กลับเข้าห้องเดิม") : ""}</aside>`;
+  const botPanel = `<div class="bot-lobby"><div class="row"><label>ระดับบอท <select id="botDifficulty"><option value="easy">ง่าย · สุ่มการ์ด</option><option value="normal" selected>ปกติ · เลือกตามพลัง</option></select></label><label>เด็คบอท <select id="botDeck"><option>SD02</option><option>SD01</option></select></label></div><div style="margin-top:16px">${btn("startBot", "เริ่มเล่นกับบอท", valid.valid ? "" : "disabled", "primary")}</div></div>`;
+  const friendPanel = `<div class="friend-lobby">${btn("create", "สร้างห้อง", valid.valid ? "" : "disabled")}<hr style="width:100%;border:0;border-top:1px solid var(--line)"><label>รหัสห้องของเพื่อน<input id="roomCode" maxlength="8" value="${esc(new URLSearchParams(location.search).get("room") || "")}" placeholder="รหัส 8 ตัว (แยกตัวพิมพ์เล็ก/ใหญ่)" style="display:block;width:100%"></label>${btn("join", "เข้าห้องเพื่อน", valid.valid ? "" : "disabled")}</div>`;
+  return `<div class="play-lobby-layout">${modeToggle}<section class="panel play-lobby-settings"><h2>${playMode === "bot" ? "เล่นกับบอท" : "เล่นกับผู้เล่น"}</h2><div class="stack"><label>ชื่อของคุณ<input id="playerName" maxlength="32" placeholder="ชื่อผู้เล่น" style="display:block;width:100%"></label><p>เด็คที่เลือก: <strong>${esc(deck.name)}</strong><br><span class="small ${valid.valid ? "pill" : "danger"}">${valid.valid ? "พร้อมเล่น · " + valid.actions + " แอ็กชัน" : esc(valid.errors.join(" · "))}</span></p>${deckPickerInline()}${playMode === "bot" ? botPanel : friendPanel}</div></section></div>`;
+
 }
 
 const zoneNames: Record<string, string> = {
@@ -751,10 +768,9 @@ const zoneNames: Record<string, string> = {
 };
 
 function zoneUI(p: PublicPlayer, zone: "trash", mine: boolean, live: boolean): string {
-  const list = p[zone] || [];
-  return `<div class="zone"><h3>${zoneNames[zone]} <span class="badge">${list.length}</span></h3><div class="row">${list.map((code, i) => `<button class="art-button" style="width:62px" ${mine && live ? `data-zone="${zone}" data-index="${i}"` : `data-detail="${code}"`} aria-label="${esc(card(code)?.name)}"><img class="mini" style="width:100%" src="${card(code)?.img}" alt="${esc(card(code)?.name)}"></button>`).join("")}</div></div>`;
+ const list = p.trash || []; const top = list.at(-1); const seat = mine ? (room?.seat ?? 0) : 1 - (room?.seat ?? 0);
+ return `<button class="trash-pile" data-view-trash="${seat}" aria-label="ดูกองทิ้ง ${list.length} ใบ"><span>กองทิ้ง <b>${list.length}</b></span>${top ? `<img src="${card(top)?.img}" alt="${esc(card(top)?.name)}">` : '<span class="muted">ว่าง</span>'}</button>`;
 }
-
 function board(): string {
   if (!room) return "";
   if (room.rulesVersion)
@@ -776,10 +792,14 @@ function board(): string {
 }
 
 function render(): void {
+  if (tab !== "cards" && dialog.classList.contains("catalog-detail-modal")) { dialog.close(); dialog.classList.remove("catalog-detail-modal"); }
+  syncInspector();
   if(tab === "decks"){clearTimeout(toastTimer);const popup=$("#toast");if(popup)popup.style.display="none";}
   saveDeckDraft();
   document.body.classList.toggle("battle-view", tab === "play" && !!room && !inLobby);
   document.body.classList.toggle("deck-view", tab === "decks");
+  document.body.classList.toggle("catalog-view", tab === "cards");
+  document.body.classList.toggle("play-lobby-view", tab === "play" && (!room || inLobby));
   document
     .querySelectorAll<HTMLElement>("[data-tab]")
     .forEach((n) => n.classList.toggle("active", n.dataset.tab === tab));
@@ -812,8 +832,9 @@ function render(): void {
           ? board()
           : playLobby();
 
+  animatePage(app, tab + ":" + (tab === "decks" ? deckEditing ? "edit:" + deck.id : "list" : tab === "play" ? room && !inLobby ? "board" : "lobby" : "catalog"));
   updateEffects(room, tab === "play" && !inLobby);
-  updateBattleLog(room, tab === "play" && !inLobby);
+  updateBattleLog(room, tab === "play" && !inLobby, card);
   updateBattlePresentation(room, tab === "play" && !inLobby, card);
 }
 
@@ -854,6 +875,15 @@ function detail(code: string, extra = ""): void {
 
   panel.innerHTML = `<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong></div><div class="card-info-content"><div class="detail-grid"><img id="detailArt" src="${c.img}" alt="${esc(c.name)}"><div><p class="eyebrow">${c.code} · ${c.set}</p><h2>${esc(c.name)}</h2>${extra}<p class="muted">${esc(c.nameJp)}<br>${esc(c.nameEn)}</p><div class="row">${c.type === "character" ? `<span class="badge">Lv. ${c.level}</span><span class="badge">${esc(c.element)}</span><span class="badge">${esc(c.weapon)}</span>` : `<span class="badge">${c.color}</span><span class="badge">ค่าใช้ ${c.fee}</span><span class="badge">ความเร็ว ${c.speed || "—"}</span><span class="badge">ความเสียหาย ${c.damage || "0"}</span>`}</div><p class="small muted">${(c.tags || []).map(esc).join(" · ")}</p><div class="effect">${formatCardText(c.effectTh)}</div><p class="small muted">คำแปลไทยไม่เป็นทางการ · ฉบับร่าง</p><details><summary>ข้อความญี่ปุ่นต้นฉบับ</summary><p class="effect">${formatCardText(c.info || "—")}</p></details><label class="small">ภาพเวอร์ชัน <select id="variant">${(c.variants || []).map((v, i) => `<option value="${v.img}">${v.rarity} · ${esc(v.obtain)} · ${i + 1}</option>`).join("")}</select></label><div class="row" style="margin-top:20px">${tab !== "decks" ? "" : c.type === "character" ? '<span class="lock-tag" title="ตัวละครถูกเลือกให้อัตโนมัติเป็นพรีเซ็ต จัดการได้ที่แท็บสร้างเด็ค">🔒 พรีเซ็ตตัวละคร</span>' : btn("add", "+ เพิ่มลงเด็ค", `data-code="${code}" ${isMax ? "disabled" : ""}`, "primary")}<a href="${c.source}" target="_blank" rel="noreferrer">ข้อมูลต้นฉบับ ↗</a></div></div></div></div>`;
   panel.querySelector(".card-info-content")!.scrollTop = 0;
+  if (tab === "cards") {
+    dialog.classList.add("catalog-detail-modal");
+    document.body.classList.remove("has-card-info");
+    // Move the same inspector into the modal so image controls keep working.
+    document.body.append(panel);
+    dialog.innerHTML = btn("close", "✕", 'aria-label="ปิดรายละเอียดการ์ด"', "close");
+    dialog.append(panel);
+    if (!dialog.open) dialog.showModal();
+  }
 }
 
 function showCharacterStack(p: PublicPlayer, code: string): void {
@@ -1012,6 +1042,7 @@ document.addEventListener("click", async (e) => {
   try {
     if (t.dataset.tab) {
       tab = t.dataset.tab as "cards" | "decks" | "play";
+      if (tab === "decks") deckEditing = false;
       render();
       return;
     }
@@ -1106,7 +1137,7 @@ document.addEventListener("click", async (e) => {
       const res = $("#results");
       if (res) {
         res.innerHTML = results();
-        res.scrollIntoView({ behavior: "smooth", block: "start" });
+
       }
       return;
     }
@@ -1116,12 +1147,14 @@ document.addEventListener("click", async (e) => {
       render();
       return;
     }
+    if (doIt === "deckList") { saveDeckDraft(); deckEditing = false; render(); return; }
     if (doIt === "new") {
       if (
         Object.keys(deck.entries).length &&
         !confirm("เริ่มเด็คใหม่? การแก้ไขที่ยังไม่บันทึกจะหายไป")
       )
         return;
+      deckEditing = true;
       deck = { id: "", name: "เด็คของฉัน", entries: {} };
       render();
       return;
@@ -1164,6 +1197,7 @@ document.addEventListener("click", async (e) => {
       if (!d) return;
       deck = structuredClone(d);
       tab = "decks";
+      deckEditing = true;
       if (dialog.open) dialog.close();
       render();
       return;
@@ -1402,6 +1436,8 @@ try {
       const s = JSON.parse(last);
       token = s.token;
       room = await api<PublicRoom>("/api/rooms/" + s.code, undefined, token);
+      tab = "play";
+      inLobby = false;
     } catch {
       sessionStorage.removeItem("wuwa-room");
     }
@@ -1415,8 +1451,10 @@ try {
 async function pollRoom(): Promise<void> {
   if (room && !busy && !tableDrag) {
     try {
-      const next = await api<PublicRoom>("/api/rooms/" + room.code, undefined, token);
-      if (!tableDrag) {
+      const requestedRoom = room.code;
+      const requestedToken = token;
+      const next = await api<PublicRoom>("/api/rooms/" + requestedRoom, undefined, requestedToken);
+      if (room && room.code === requestedRoom && token === requestedToken && !busy && !tableDrag && next.version >= room.version) {
         const changed = next.version !== room.version || syncError;
         room = next;
         syncError = false;
@@ -1484,11 +1522,40 @@ document.addEventListener("keydown", (e) => {
 
 // Keep one inspector visible, including inside the browser's modal top layer.
 const inspector = document.querySelector<HTMLElement>("#card-info")!;
-inspector.hidden = false;
-if (!inspector.innerHTML) inspector.innerHTML = '<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong></div><p class="muted">ชี้เมาส์ที่การ์ดเพื่อดูความสามารถ</p>';
-document.body.classList.add("has-card-info");
-new MutationObserver(() => {
-  const host = [...document.querySelectorAll<HTMLDialogElement>("dialog[open]")].at(-1) || document.body;
-  if (inspector.parentElement !== host) host.append(inspector);
-  inspector.hidden = false;
-}).observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:["open"]});
+if (!inspector.innerHTML) inspector.innerHTML = '<div class="card-info-heading"><strong>รายละเอียดการ์ด</strong></div><p class="muted">คลิกการ์ดเพื่อดูความสามารถ</p>';
+function syncInspector(): void {
+  const panel = document.querySelector<HTMLElement>("#card-info");
+  if (!panel) return;
+  if (tab === "play" && !panel.querySelector("[data-inspector-toggle]")) {
+    const heading = panel.querySelector(".card-info-heading");
+    if (heading) { const toggle = document.createElement("button"); toggle.dataset.inspectorToggle = "true"; const initialCollapsed = document.body.classList.contains("inspector-collapsed"); toggle.textContent = initialCollapsed ? "⌄" : "⌃"; toggle.setAttribute("aria-label", initialCollapsed ? "ขยายรายละเอียดการ์ด" : "ย่อรายละเอียดการ์ด"); toggle.setAttribute("aria-expanded", String(!initialCollapsed)); toggle.onclick = () => { const collapsed = document.body.classList.toggle("inspector-collapsed"); toggle.textContent = collapsed ? "⌄" : "⌃"; toggle.setAttribute("aria-expanded", String(!collapsed)); toggle.setAttribute("aria-label", collapsed ? "ขยายรายละเอียดการ์ด" : "ย่อรายละเอียดการ์ด"); }; heading.append(toggle); }
+  }
+  const sidebar = (tab === "play" && !!room && !inLobby) || (tab === "decks" && deckEditing);
+  const catalogModal = tab === "cards" && dialog.open && dialog.classList.contains("catalog-detail-modal");
+  document.body.classList.toggle("has-card-info", sidebar);
+  const host = sidebar ? [...document.querySelectorAll<HTMLDialogElement>("dialog[open]")].at(-1) || document.body : catalogModal ? dialog : document.body;
+  if (panel.parentElement !== host) host.append(panel);
+  panel.hidden = !sidebar && !catalogModal;
+}
+syncInspector();
+new MutationObserver(syncInspector).observe(document.body, {subtree:true, childList:true, attributes:true, attributeFilter:["open"]});
+
+let catalogResizeTimer: ReturnType<typeof setTimeout>;
+window.addEventListener("resize", () => {
+  clearTimeout(catalogResizeTimer);
+  catalogResizeTimer = setTimeout(() => {
+    if (tab === "cards") { const resultsPanel = $("#results"); if (resultsPanel) resultsPanel.innerHTML = results(); }
+  }, 120);
+});
+
+// A backdrop click targets the dialog, but falls outside its content box.
+document.addEventListener("click", (event) => {
+  const modal = event.target;
+  if (!(modal instanceof HTMLDialogElement) || !modal.open) return;
+  const bounds = modal.getBoundingClientRect();
+  if (event.clientX >= bounds.left && event.clientX <= bounds.right &&
+      event.clientY >= bounds.top && event.clientY <= bounds.bottom) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  modal.close();
+}, true);
